@@ -5,6 +5,4 @@ logs/*
 *.log
 .yarn/*.gz
 .DS_Store
-
-# Freebox API token (sensitive)
 token.json

@@ -1,44 +1,44 @@
 # Freebox Heartbeat Monitor
 
-Système de monitoring pour Freebox Delta permettant de détecter les downtime et surveiller l'état de la connexion Internet.
+Monitoring system for Freebox Delta to detect downtime and monitor Internet connection status.
 
 ## Description
 
-Ce projet est un script Node.js qui s'exécute sur une VM de la Freebox et :
-- Interroge l'API locale Freebox toutes les minutes
-- Récupère les informations de connexion (état, IP, bande passante, média)
-- Envoie des heartbeats HTTP à un serveur distant de monitoring
-- Permet de détecter les coupures de connexion et les basculements 4G
+This project is a Node.js script that runs on a Freebox VM and:
+- Queries the local Freebox API every minute
+- Retrieves connection information (state, IP, bandwidth, media)
+- Sends HTTP heartbeats to a remote monitoring server
+- Detects connection outages and 4G failovers
 
-## Prérequis
+## Prerequisites
 
-- **Node.js 22** ou supérieur
-- Une **Freebox Delta** avec accès à l'API locale
-- Un serveur web distant pour recevoir les heartbeats
-- Accès à une VM sur la Freebox ou un appareil sur le réseau local
+- **Node.js 22** or higher
+- A **Freebox Delta** with local API access
+- The [teol/freebox-watcher](https://github.com/teol/freebox-watcher) monitoring server to receive heartbeats
+- Access to a VM on the Freebox or a device on the local network
 
 ## Installation
 
-1. Clonez ou téléchargez ce projet sur votre VM Freebox :
+1. Clone or download this project on your Freebox VM:
 ```bash
-git clone <url-du-repo>
+git clone <repo-url>
 cd freebox-heartbeat
 ```
 
-2. Installez les dépendances :
+2. Install dependencies:
 ```bash
 npm install
 ```
 
-3. Copiez le fichier de configuration :
+3. Copy the configuration file:
 ```bash
 cp .env.example .env
 ```
 
-4. Éditez le fichier `.env` avec vos paramètres :
+4. Edit the `.env` file with your parameters:
 ```env
-VPS_URL=https://votre-serveur.com/heartbeat
-SECRET=votre_secret_partage
+VPS_URL=https://your-server.com/heartbeat
+SECRET=your_shared_secret
 APP_ID=fr.mon.monitoring
 APP_NAME=Freebox Monitor
 APP_VERSION=1.0.0
@@ -46,37 +46,37 @@ FREEBOX_API_URL=http://mafreebox.freebox.fr/api/v4
 HEARTBEAT_INTERVAL=60000
 ```
 
-## Configuration - Autorisation API Freebox
+## Configuration - Freebox API Authorization
 
-Avant la première utilisation, vous devez autoriser l'application sur votre Freebox :
+Before first use, you must authorize the application on your Freebox:
 
-1. Lancez le script d'autorisation :
+1. Run the authorization script:
 ```bash
 node authorize.js
 ```
 
-2. **Validez l'accès sur l'écran LCD de votre Freebox** dans les 30 secondes
+2. **Validate access on your Freebox LCD screen** within 30 seconds
 
-3. Le script créera un fichier `token.json` contenant votre token d'accès
+3. The script will create a `token.json` file containing your access token
 
-4. Ce fichier sera utilisé automatiquement par le script de monitoring
+4. This file will be automatically used by the monitoring script
 
-## Utilisation
+## Usage
 
-### Lancement manuel
+### Manual launch
 
 ```bash
 node monitor.js
 ```
 
-### Lancement en tant que service (systemd)
+### Running as a service (systemd)
 
-1. Créez un fichier service :
+1. Create a service file:
 ```bash
 sudo nano /etc/systemd/system/freebox-heartbeat.service
 ```
 
-2. Ajoutez la configuration :
+2. Add the configuration:
 ```ini
 [Unit]
 Description=Freebox Heartbeat Monitor
@@ -84,8 +84,8 @@ After=network.target
 
 [Service]
 Type=simple
-User=votre-utilisateur
-WorkingDirectory=/chemin/vers/freebox-heartbeat
+User=your-user
+WorkingDirectory=/path/to/freebox-heartbeat
 ExecStart=/usr/bin/node monitor.js
 Restart=always
 RestartSec=10
@@ -94,25 +94,25 @@ RestartSec=10
 WantedBy=multi-user.target
 ```
 
-3. Activez et démarrez le service :
+3. Enable and start the service:
 ```bash
 sudo systemctl enable freebox-heartbeat
 sudo systemctl start freebox-heartbeat
 sudo systemctl status freebox-heartbeat
 ```
 
-4. Consultez les logs :
+4. View logs:
 ```bash
 sudo journalctl -u freebox-heartbeat -f
 ```
 
-## Structure des données envoyées
+## Data Structure
 
-Le script envoie les données suivantes au serveur distant :
+The script sends the following data to the remote server:
 
 ```json
 {
-  "token": "SECRET_PARTAGE",
+  "token": "SHARED_SECRET",
   "ipv4": "1.2.3.4",
   "connection_state": "up",
   "media_state": "ftth",
@@ -122,72 +122,72 @@ Le script envoie les données suivantes au serveur distant :
 }
 ```
 
-### Champs :
-- `token` : Secret partagé pour authentification
-- `ipv4` : Adresse IP publique actuelle
-- `connection_state` : État de la connexion (`up`, `down`, `going_up`, `going_down`)
-- `media_state` : Type de média (`ftth`, `backup` pour 4G)
-- `bandwidth_down` : Bande passante descendante (bits/s)
-- `bandwidth_up` : Bande passante montante (bits/s)
-- `timestamp` : Horodatage ISO 8601
+### Fields:
+- `token`: Shared secret for authentication
+- `ipv4`: Current public IP address
+- `connection_state`: Connection state (`up`, `down`, `going_up`, `going_down`)
+- `media_state`: Media type (`ftth`, `backup` for 4G)
+- `bandwidth_down`: Download bandwidth (bits/s)
+- `bandwidth_up`: Upload bandwidth (bits/s)
+- `timestamp`: ISO 8601 timestamp
 
-## Fonctionnalités
+## Features
 
-- ✅ Authentification automatique à l'API Freebox
-- ✅ Récupération des informations de connexion
-- ✅ Envoi périodique de heartbeats
-- ✅ Gestion des erreurs avec retry automatique
-- ✅ Logs détaillés avec timestamps
-- ✅ Détection des basculements FTTH ↔ 4G
-- ✅ Fermeture propre de la session Freebox
-- ✅ Variables d'environnement pour la configuration
+- ✅ Automatic authentication to Freebox API
+- ✅ Connection information retrieval
+- ✅ Periodic heartbeat sending
+- ✅ Error handling with automatic retry
+- ✅ Detailed logging with timestamps
+- ✅ FTTH ↔ 4G failover detection
+- ✅ Clean Freebox session closure
+- ✅ Environment variables for configuration
 - ✅ Graceful shutdown (SIGINT/SIGTERM)
 
-## Dépannage
+## Troubleshooting
 
-### Erreur d'autorisation
+### Authorization error
 ```
 Error: Invalid token or session
 ```
-→ Relancez `node authorize.js` pour obtenir un nouveau token
+→ Re-run `node authorize.js` to obtain a new token
 
-### La Freebox ne répond pas
+### Freebox not responding
 ```
 Error: ECONNREFUSED
 ```
-→ Vérifiez que vous êtes bien sur le réseau local de la Freebox
-→ Vérifiez l'URL de l'API dans `.env`
+→ Check that you are on the Freebox local network
+→ Verify the API URL in `.env`
 
-### Le serveur distant ne reçoit pas les heartbeats
-→ Vérifiez l'URL du serveur dans `.env`
-→ Consultez les logs pour voir les erreurs d'envoi
-→ Vérifiez que le SECRET est identique côté serveur
+### Remote server not receiving heartbeats
+→ Check the server URL in `.env`
+→ Review logs for sending errors
+→ Verify that the SECRET matches on the server side
 
-## Structure du projet
+## Project Structure
 
 ```
 freebox-heartbeat/
-├── monitor.js          # Script principal de monitoring
-├── authorize.js        # Script d'autorisation Freebox
-├── package.json        # Dépendances Node.js
-├── .env.example        # Template de configuration
-├── .env                # Configuration (à ne pas commiter)
-├── .gitignore          # Fichiers à ignorer
-├── token.json          # Token API Freebox (généré)
+├── monitor.js          # Main monitoring script
+├── authorize.js        # Freebox authorization script
+├── package.json        # Node.js dependencies
+├── .env.example        # Configuration template
+├── .env                # Configuration (do not commit)
+├── .gitignore          # Files to ignore
+├── token.json          # Freebox API token (generated)
 └── README.md           # Documentation
 ```
 
-## Sécurité
+## Security
 
-- ⚠️ Ne commitez **jamais** les fichiers `.env` et `token.json`
-- ⚠️ Utilisez un **SECRET** fort et unique
-- ⚠️ Le serveur distant doit valider le SECRET avant d'accepter les données
-- ⚠️ Limitez l'accès au fichier `token.json` (chmod 600)
+- ⚠️ **Never** commit `.env` and `token.json` files
+- ⚠️ Use a **strong and unique** SECRET
+- ⚠️ The remote server must validate the SECRET before accepting data
+- ⚠️ Restrict access to `token.json` file (chmod 600)
 
-## Licence
+## License
 
 MIT
 
-## Auteur
+## Author
 
-Projet de monitoring Freebox Delta
+Freebox Delta monitoring project

@@ -26,7 +26,7 @@ function log(message, level = 'INFO') {
  * Sleep utility
  */
 function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
@@ -44,7 +44,9 @@ async function requestAuthorization() {
         });
 
         if (!response.data.success) {
-            throw new Error(`Authorization request failed: ${response.data.msg || 'Unknown error'}`);
+            throw new Error(
+                `Authorization request failed: ${response.data.msg || 'Unknown error'}`
+            );
         }
 
         return response.data.result;
@@ -67,9 +69,7 @@ async function trackAuthorization(trackId) {
 
     while (attempts < maxAttempts) {
         try {
-            const response = await axios.get(
-                `${CONFIG.freeboxApiUrl}/login/authorize/${trackId}`
-            );
+            const response = await axios.get(`${CONFIG.freeboxApiUrl}/login/authorize/${trackId}`);
 
             if (!response.data.success) {
                 throw new Error(`Tracking failed: ${response.data.msg || 'Unknown error'}`);
@@ -100,7 +100,6 @@ async function trackAuthorization(trackId) {
 
             attempts++;
             await sleep(1000);
-
         } catch (error) {
             if (error.message.includes('Authorization')) {
                 throw error;
@@ -155,8 +154,8 @@ function askQuestion(query) {
         output: process.stdout
     });
 
-    return new Promise(resolve => {
-        rl.question(query, answer => {
+    return new Promise((resolve) => {
+        rl.question(query, (answer) => {
             rl.close();
             resolve(answer);
         });
@@ -214,7 +213,6 @@ async function main() {
         console.log('│  You can now run: npm start                             │');
         console.log('│                                                         │');
         console.log('└─────────────────────────────────────────────────────────┘\n');
-
     } catch (error) {
         log(`Error: ${error.message}`, 'ERROR');
         process.exit(1);
@@ -222,7 +220,7 @@ async function main() {
 }
 
 // Run authorization
-main().catch(error => {
+main().catch((error) => {
     log(`Fatal error: ${error.message}`, 'ERROR');
     process.exit(1);
 });

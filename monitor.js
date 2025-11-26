@@ -37,7 +37,7 @@ function log(message, level = 'INFO') {
  * Sleep utility
  */
 function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
@@ -80,10 +80,7 @@ async function loginToFreebox(appToken) {
         const challenge = loginResp.data.result.challenge;
 
         // Calculate password (HMAC-SHA1 of challenge with app_token)
-        const password = crypto
-            .createHmac('sha1', appToken)
-            .update(challenge)
-            .digest('hex');
+        const password = crypto.createHmac('sha1', appToken).update(challenge).digest('hex');
 
         // Open session
         const sessionResp = await axios.post(
@@ -176,7 +173,10 @@ async function sendHeartbeat(data, retries = 0) {
             : error.message;
 
         if (retries < CONFIG.maxRetries) {
-            log(`Failed to send heartbeat (${errorMsg}), retrying in ${CONFIG.retryDelay}ms... (${retries + 1}/${CONFIG.maxRetries})`, 'WARN');
+            log(
+                `Failed to send heartbeat (${errorMsg}), retrying in ${CONFIG.retryDelay}ms... (${retries + 1}/${CONFIG.maxRetries})`,
+                'WARN'
+            );
             await sleep(CONFIG.retryDelay);
             return sendHeartbeat(data, retries + 1);
         }
@@ -216,12 +216,15 @@ async function monitor() {
 
         // Send heartbeat to remote server
         await sendHeartbeat(payload);
-
     } catch (error) {
         log(`Error: ${error.message}`, 'ERROR');
 
         // If authentication error, clear session token to force re-login
-        if (error.message.includes('auth') || error.message.includes('403') || error.message.includes('Invalid session')) {
+        if (
+            error.message.includes('auth') ||
+            error.message.includes('403') ||
+            error.message.includes('Invalid session')
+        ) {
             log('Session may be invalid, will re-authenticate on next run', 'WARN');
             sessionToken = null;
         }
