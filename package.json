@@ -1,0 +1,28 @@
+{
+  "name": "freebox-heartbeat",
+  "version": "1.0.0",
+  "description": "Freebox Delta monitoring system with heartbeat to remote server",
+  "type": "module",
+  "main": "monitor.js",
+  "scripts": {
+    "start": "node monitor.js",
+    "authorize": "node authorize.js",
+    "dev": "node --watch monitor.js"
+  },
+  "keywords": [
+    "freebox",
+    "monitoring",
+    "heartbeat",
+    "uptime",
+    "api"
+  ],
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "dependencies": {
+    "axios": "^1.7.9",
+    "dotenv": "^16.4.7"
+  }
+}
