@@ -143,6 +143,38 @@ The script sends the following data to the remote server:
 - ✅ Environment variables for configuration
 - ✅ Graceful shutdown (SIGINT/SIGTERM)
 
+## Testing
+
+The project includes comprehensive unit tests using Vitest.
+
+### Running tests
+
+```bash
+npm test
+```
+
+### Running tests in watch mode
+
+```bash
+npm run test:watch
+```
+
+### Test coverage
+
+The test suite includes:
+- **56+ unit tests** covering utility functions, API interactions, and heartbeat logic
+- Mock-based tests for external dependencies (Axios, file system)
+- Tests for error handling and retry mechanisms
+- Validation of HMAC-SHA1 authentication flow
+
+### Continuous Integration
+
+Tests run automatically on:
+- All pull requests
+- Pushes to main branch
+
+See `.github/workflows/ci.yml` for CI configuration.
+
 ## Troubleshooting
 
 ### Authorization error
@@ -167,14 +199,27 @@ Error: ECONNREFUSED
 
 ```
 freebox-heartbeat/
-├── monitor.js          # Main monitoring script
-├── authorize.js        # Freebox authorization script
-├── package.json        # Node.js dependencies
-├── .env.example        # Configuration template
-├── .env                # Configuration (do not commit)
-├── .gitignore          # Files to ignore
-├── token.json          # Freebox API token (generated)
-└── README.md           # Documentation
+├── lib/                    # Reusable library modules
+│   ├── freebox-api.js      # Freebox API functions
+│   ├── heartbeat.js        # Heartbeat sending logic
+│   └── utils.js            # Utility functions
+├── test/                   # Unit tests
+│   ├── freebox-api.test.js # Freebox API tests
+│   ├── heartbeat.test.js   # Heartbeat tests
+│   └── utils.test.js       # Utility tests
+├── .github/
+│   └── workflows/
+│       └── ci.yml          # CI/CD configuration
+├── monitor.js              # Main monitoring script
+├── authorize.js            # Freebox authorization script
+├── package.json            # Node.js dependencies
+├── vitest.config.js        # Test configuration
+├── .prettierrc.json        # Code formatting rules
+├── .env.example            # Configuration template
+├── .env                    # Configuration (do not commit)
+├── .gitignore              # Files to ignore
+├── token.json              # Freebox API token (generated)
+└── README.md               # Documentation
 ```
 
 ## Security
