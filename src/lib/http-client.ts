@@ -1,8 +1,10 @@
 import http from 'http';
 import https from 'https';
 
+export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD';
+
 export interface HttpClientOptions {
-    method?: 'GET' | 'POST';
+    method?: HttpMethod;
     headers?: Record<string, string>;
     timeout?: number;
     body?: string | object;
@@ -12,6 +14,7 @@ export interface HttpClientResponse<T = unknown> {
     data: T;
     status: number;
     statusText: string;
+    headers: http.IncomingHttpHeaders;
 }
 
 export class HttpClientError extends Error {
@@ -46,8 +49,7 @@ function buildRequestOptions(
         port: url.port || defaultPort,
         path: url.pathname + url.search,
         method: options.method ?? 'GET',
-        headers: options.headers ?? {},
-        timeout: options.timeout
+        headers: options.headers ?? {}
     };
 }
 
@@ -58,12 +60,28 @@ function request<T>(url: string, options: HttpClientOptions = {}): Promise<HttpC
         const requestOptions = buildRequestOptions(parsedUrl, options);
 
         let bodyData: string | undefined;
-        if (options.body) {
-            bodyData = typeof options.body === 'string' ? options.body : JSON.stringify(options.body);
-            requestOptions.headers = {
-                ...requestOptions.headers,
-                'Content-Length': Buffer.byteLength(bodyData).toString()
-            };
+        if (options.body !== undefined) {
+            let serializedBody: string;
+            if (typeof options.body === 'string') {
+                serializedBody = options.body;
+            } else {
+                serializedBody = JSON.stringify(options.body);
+            }
+            bodyData = serializedBody;
+
+            const headers: http.OutgoingHttpHeaders = { ...(options.headers ?? {}) };
+
+            if (
+                typeof options.body === 'object' &&
+                !headers['Content-Type'] &&
+                !headers['content-type']
+            ) {
+                headers['Content-Type'] = 'application/json';
+            }
+
+            headers['Content-Length'] = Buffer.byteLength(serializedBody).toString();
+
+            requestOptions.headers = headers;
         }
 
         const req = protocol.request(requestOptions, (res) => {
@@ -80,25 +98,56 @@ function request<T>(url: string, options: HttpClientOptions = {}): Promise<HttpC
 
             res.on('end', () => {
                 const rawData = Buffer.concat(chunks).toString('utf8');
-                const statusCode = res.statusCode ?? 0;
-                const statusMessage = res.statusMessage ?? 'Unknown';
+                const statusCode = res.statusCode;
 
-                let parsedData: T;
+                if (statusCode === undefined) {
+                    reject(new HttpClientError('Missing status code in HTTP response'));
+                    return;
+                }
+
+                const statusMessage = res.statusMessage ?? 'Unknown';
+                const contentTypeHeader = res.headers['content-type'];
+
+                let contentType = '';
+                if (Array.isArray(contentTypeHeader)) {
+                    contentType = contentTypeHeader[0] ?? '';
+                } else if (typeof contentTypeHeader === 'string') {
+                    contentType = contentTypeHeader;
+                }
+
+                const isJson = contentType.includes('application/json') || contentType.includes('+json');
+
+                let parsedData: unknown;
                 if (!rawData) {
-                    parsedData = null as any;
-                } else {
+                    parsedData = null;
+                } else if (isJson) {
                     try {
                         parsedData = JSON.parse(rawData);
-                    } catch {
-                        parsedData = rawData as T;
+                    } catch (error) {
+                        if (statusCode >= 200 && statusCode < 300) {
+                            reject(
+                                new HttpClientError(
+                                    `Failed to parse JSON response: ${(error as Error).message}`,
+                                    statusCode,
+                                    statusMessage,
+                                    rawData
+                                )
+                            );
+                            return;
+                        }
+
+                        parsedData = rawData;
                     }
+                } else {
+                    parsedData = rawData;
                 }
 
                 if (statusCode >= 200 && statusCode < 300) {
                     resolve({
-                        data: parsedData,
+                        data: parsedData as T,
                         status: statusCode,
-                        statusText: statusMessage
+                        statusText: statusMessage,
+                        headers: res.headers
                     });
                 } else {
                     reject(
@@ -113,7 +162,12 @@ function request<T>(url: string, options: HttpClientOptions = {}): Promise<HttpC
             });
         });
 
+        if (options.timeout !== undefined) {
+            req.setTimeout(options.timeout);
+        }
+
         req.on('error', (error: Error) => {
+            req.destroy();
             reject(new HttpClientError(error.message));
         });
 
@@ -135,17 +189,23 @@ export function get<T>(url: string, options: Omit<HttpClientOptions, 'method' | 
 }
 
 export function post<T>(url: string, data?: object | string, options: Omit<HttpClientOptions, 'method' | 'body'> = {}): Promise<HttpClientResponse<T>> {
-    const headers = { ...options.headers };
-    if (data && typeof data === 'object') {
-        headers['Content-Type'] = headers['Content-Type'] ?? 'application/json';
-    }
-
     return request<T>(url, {
         ...options,
         method: 'POST',
-        body: data,
-        headers
+        body: data
     });
 }
 
-export default { get, post };
+export function put<T>(url: string, data?: object | string, options: Omit<HttpClientOptions, 'method' | 'body'> = {}): Promise<HttpClientResponse<T>> {
+    return request<T>(url, { ...options, method: 'PUT', body: data });
+}
+
+export function patch<T>(url: string, data?: object | string, options: Omit<HttpClientOptions, 'method' | 'body'> = {}): Promise<HttpClientResponse<T>> {
+    return request<T>(url, { ...options, method: 'PATCH', body: data });
+}
+
+export function del<T>(url: string, options: Omit<HttpClientOptions, 'method' | 'body'> = {}): Promise<HttpClientResponse<T>> {
+    return request<T>(url, { ...options, method: 'DELETE' });
+}
+
+export default { get, post, put, patch, delete: del };
