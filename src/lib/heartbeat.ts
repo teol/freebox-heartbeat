@@ -1,10 +1,14 @@
 import axios from 'axios';
+import type { HeartbeatPayload } from './types.js';
 import { sleep, log } from './utils.js';
 
-/**
- * Send heartbeat to remote server with retry
- */
-export async function sendHeartbeat(vpsUrl, data, maxRetries = 3, retryDelay = 5000, retries = 0) {
+export async function sendHeartbeat(
+    vpsUrl: string,
+    data: HeartbeatPayload,
+    maxRetries = 3,
+    retryDelay = 5000,
+    retries = 0
+): Promise<unknown> {
     try {
         const response = await axios.post(vpsUrl, data, {
             timeout: 15000,
@@ -16,9 +20,13 @@ export async function sendHeartbeat(vpsUrl, data, maxRetries = 3, retryDelay = 5
         log(`Heartbeat sent successfully: ${data.connection_state} (${data.media_state})`);
         return response.data;
     } catch (error) {
-        const errorMsg = error.response
-            ? `${error.response.status} - ${error.response.statusText}`
-            : error.message;
+        const typedError = error as {
+            response?: { status: number; statusText: string };
+            message: string;
+        };
+        const errorMsg = typedError.response
+            ? `${typedError.response.status} - ${typedError.response.statusText}`
+            : typedError.message;
 
         if (retries < maxRetries) {
             log(

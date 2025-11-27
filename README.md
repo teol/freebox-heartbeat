@@ -4,7 +4,7 @@ Monitoring system for Freebox Delta to detect downtime and monitor Internet conn
 
 ## Description
 
-This project is a Node.js script that runs on a Freebox VM and:
+This project is a Node.js (TypeScript) script that runs on a Freebox VM and:
 - Queries the local Freebox API every minute
 - Retrieves connection information (state, IP, bandwidth, media)
 - Sends HTTP heartbeats to a remote monitoring server
@@ -25,9 +25,10 @@ git clone <repo-url>
 cd freebox-heartbeat
 ```
 
-2. Install dependencies:
+2. Install dependencies (Yarn 4 with Corepack):
 ```bash
-npm install
+corepack enable
+yarn install
 ```
 
 3. Copy the configuration file:
@@ -52,7 +53,7 @@ Before first use, you must authorize the application on your Freebox:
 
 1. Run the authorization script:
 ```bash
-node authorize.js
+yarn authorize
 ```
 
 2. **Validate access on your Freebox LCD screen** within 30 seconds
@@ -66,7 +67,7 @@ node authorize.js
 ### Manual launch
 
 ```bash
-node monitor.js
+yarn start
 ```
 
 ### Running as a service (systemd)
@@ -86,7 +87,7 @@ After=network.target
 Type=simple
 User=your-user
 WorkingDirectory=/path/to/freebox-heartbeat
-ExecStart=/usr/bin/node monitor.js
+ExecStart=/usr/bin/env yarn start
 Restart=always
 RestartSec=10
 
@@ -149,7 +150,7 @@ The script sends the following data to the remote server:
 ```
 Error: Invalid token or session
 ```
-→ Re-run `node authorize.js` to obtain a new token
+→ Re-run `yarn authorize` to obtain a new token
 
 ### Freebox not responding
 ```

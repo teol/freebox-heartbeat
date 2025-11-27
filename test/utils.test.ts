@@ -1,16 +1,23 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { log, sleep, validateConfig, buildHeartbeatPayload, isAuthError } from '../lib/utils.js';
+import {
+    log,
+    sleep,
+    validateConfig,
+    buildHeartbeatPayload,
+    isAuthError
+} from '../src/lib/utils.js';
 
 describe('utils', () => {
     describe('log', () => {
         beforeEach(() => {
-            vi.spyOn(console, 'log').mockImplementation(() => {});
+            vi.spyOn(console, 'log').mockImplementation(() => undefined);
         });
 
         it('should log message with timestamp and default level', () => {
             log('Test message');
             expect(console.log).toHaveBeenCalled();
-            const logCall = console.log.mock.calls[0][0];
+            const logCall = (console.log as unknown as { mock: { calls: Array<[string]> } }).mock
+                .calls[0][0];
             expect(logCall).toContain('[INFO]');
             expect(logCall).toContain('Test message');
             expect(logCall).toMatch(/\[\d{4}-\d{2}-\d{2}T/);
@@ -19,7 +26,8 @@ describe('utils', () => {
         it('should log message with custom level', () => {
             log('Error occurred', 'ERROR');
             expect(console.log).toHaveBeenCalled();
-            const logCall = console.log.mock.calls[0][0];
+            const logCall = (console.log as unknown as { mock: { calls: Array<[string]> } }).mock
+                .calls[0][0];
             expect(logCall).toContain('[ERROR]');
             expect(logCall).toContain('Error occurred');
         });
