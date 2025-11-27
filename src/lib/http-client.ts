@@ -74,6 +74,7 @@ function request<T>(url: string, options: HttpClientOptions = {}): Promise<HttpC
             });
 
             res.on('error', (error: Error) => {
+                req.destroy();
                 reject(new HttpClientError(`Response stream error: ${error.message}`));
             });
 
