@@ -1,28 +1,29 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-vi.mock('../lib/freebox-api.js', () => ({
+vi.mock('../src/lib/freebox-api.js', () => ({
     readAppToken: vi.fn(),
     loginToFreebox: vi.fn(),
     getConnectionInfo: vi.fn(),
     logoutFromFreebox: vi.fn()
 }));
 
-vi.mock('../lib/heartbeat.js', () => ({
+vi.mock('../src/lib/heartbeat.js', () => ({
     sendHeartbeat: vi.fn()
 }));
 
-vi.mock('../lib/utils.js', async () => {
-    const actual = await vi.importActual('../lib/utils.js');
+vi.mock('../src/lib/utils.js', async () => {
+    const actual =
+        await vi.importActual<typeof import('../src/lib/utils.js')>('../src/lib/utils.js');
     return {
         ...actual,
         log: vi.fn(),
-        sleep: vi.fn().mockResolvedValue()
+        sleep: vi.fn().mockResolvedValue(undefined)
     };
 });
 
-const freeboxApi = await import('../lib/freebox-api.js');
-const heartbeat = await import('../lib/heartbeat.js');
-const { createMonitor } = await import('../lib/monitor.js');
+const freeboxApi = await import('../src/lib/freebox-api.js');
+const heartbeat = await import('../src/lib/heartbeat.js');
+const { createMonitor } = await import('../src/lib/monitor.js');
 
 const mockConfig = {
     vpsUrl: 'https://example.com/report',

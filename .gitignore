@@ -3,6 +3,13 @@ node_modules/*
 logs/*
 !logs/.gitkeep
 *.log
-.yarn/*.gz
+.yarn/*
+!.yarn/releases
+!.yarn/plugins
+!.yarn/sdks
+!.yarn/patches
+!.yarn/versions
 .DS_Store
 token.json
+dist/
+tsconfig.tsbuildinfo
