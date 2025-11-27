@@ -85,7 +85,11 @@ function request<T>(url: string, options: HttpClientOptions = {}): Promise<HttpC
 
                 let parsedData: T;
                 if (!rawData) {
-                    parsedData = null as T;
+                    if (res.statusCode === 204) {
+                        parsedData = null as any;
+                    } else {
+                        return reject(new HttpClientError(`Empty response body on a successful request (${res.statusCode})`, res.statusCode, res.statusMessage));
+                    }
                 } else {
                     try {
                         parsedData = JSON.parse(rawData);
