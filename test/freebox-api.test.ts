@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import axios from 'axios';
 import fs from 'fs/promises';
 import {
     readAppToken,
@@ -14,10 +13,23 @@ import {
     saveToken
 } from '../src/lib/freebox-api.js';
 
-vi.mock('axios', () => ({
-    default: {
-        get: vi.fn(),
-        post: vi.fn()
+vi.mock('../src/lib/http-client.js', () => ({
+    get: vi.fn(),
+    post: vi.fn(),
+    HttpClientError: class HttpClientError extends Error {
+        public readonly response?: {
+            status: number;
+            statusText: string;
+            data?: unknown;
+        };
+
+        constructor(message: string, status?: number, statusText?: string, data?: unknown) {
+            super(message);
+            this.name = 'HttpClientError';
+            if (status !== undefined && statusText !== undefined) {
+                this.response = { status, statusText, data };
+            }
+        }
     }
 }));
 
@@ -30,10 +42,6 @@ vi.mock('fs/promises', () => ({
     }
 }));
 
-const mockedAxios = axios as unknown as {
-    get: ReturnType<typeof vi.fn>;
-    post: ReturnType<typeof vi.fn>;
-};
 const mockedFs = fs as unknown as {
     readFile: ReturnType<typeof vi.fn>;
     writeFile: ReturnType<typeof vi.fn>;
@@ -116,6 +124,7 @@ describe('freebox-api', () => {
 
     describe('getLoginChallenge', () => {
         it('should get challenge from API', async () => {
+            const { get } = await import('../src/lib/http-client.js');
             const mockResponse = {
                 data: {
                     success: true,
@@ -124,12 +133,12 @@ describe('freebox-api', () => {
                     }
                 }
             };
-            mockedAxios.get.mockResolvedValue(mockResponse);
+            vi.mocked(get).mockResolvedValue(mockResponse);
 
             const challenge = await getLoginChallenge('http://mafreebox.freebox.fr/api/v4');
 
             expect(challenge).toBe('abc123');
-            expect(mockedAxios.get).toHaveBeenCalledWith(
+            expect(get).toHaveBeenCalledWith(
                 'http://mafreebox.freebox.fr/api/v4/login/',
                 {
                     timeout: 10000
@@ -138,7 +147,8 @@ describe('freebox-api', () => {
         });
 
         it('should throw error if API returns failure', async () => {
-            mockedAxios.get.mockResolvedValue({
+            const { get } = await import('../src/lib/http-client.js');
+            vi.mocked(get).mockResolvedValue({
                 data: { success: false }
             });
 
@@ -148,7 +158,8 @@ describe('freebox-api', () => {
         });
 
         it('should handle network errors', async () => {
-            mockedAxios.get.mockRejectedValue(new Error('Network error'));
+            const { get } = await import('../src/lib/http-client.js');
+            vi.mocked(get).mockRejectedValue(new Error('Network error'));
 
             await expect(getLoginChallenge('http://api')).rejects.toThrow(
                 'Failed to get challenge: Network error'
@@ -156,14 +167,11 @@ describe('freebox-api', () => {
         });
 
         it('should handle API error responses', async () => {
-            const error = new Error('Request failed') as Error & {
-                response?: { status: number; data?: { msg?: string } };
-            };
-            error.response = {
-                status: 500,
-                data: { msg: 'Internal error' }
-            };
-            mockedAxios.get.mockRejectedValue(error);
+            const { get, HttpClientError } = await import('../src/lib/http-client.js');
+            const error = new HttpClientError('Request failed', 500, 'Internal Server Error', {
+                msg: 'Internal error'
+            });
+            vi.mocked(get).mockRejectedValue(error);
 
             await expect(getLoginChallenge('http://api')).rejects.toThrow('Freebox API error: 500');
         });
@@ -171,6 +179,7 @@ describe('freebox-api', () => {
 
     describe('openSession', () => {
         it('should open session successfully', async () => {
+            const { post } = await import('../src/lib/http-client.js');
             const mockResponse = {
                 data: {
                     success: true,
@@ -179,12 +188,12 @@ describe('freebox-api', () => {
                     }
                 }
             };
-            mockedAxios.post.mockResolvedValue(mockResponse);
+            vi.mocked(post).mockResolvedValue(mockResponse);
 
             const token = await openSession('http://api', 'my-app', 'password-hash');
 
             expect(token).toBe('session-123');
-            expect(mockedAxios.post).toHaveBeenCalledWith(
+            expect(post).toHaveBeenCalledWith(
                 'http://api/login/session/',
                 {
                     app_id: 'my-app',
@@ -195,7 +204,8 @@ describe('freebox-api', () => {
         });
 
         it('should throw error if session fails', async () => {
-            mockedAxios.post.mockResolvedValue({
+            const { post } = await import('../src/lib/http-client.js');
+            vi.mocked(post).mockResolvedValue({
                 data: {
                     success: false,
                     msg: 'Invalid credentials'
@@ -210,13 +220,14 @@ describe('freebox-api', () => {
 
     describe('loginToFreebox', () => {
         it('should perform complete login flow', async () => {
-            mockedAxios.get.mockResolvedValue({
+            const { get, post } = await import('../src/lib/http-client.js');
+            vi.mocked(get).mockResolvedValue({
                 data: {
                     success: true,
                     result: { challenge: 'challenge123' }
                 }
             });
-            mockedAxios.post.mockResolvedValue({
+            vi.mocked(post).mockResolvedValue({
                 data: {
                     success: true,
                     result: { session_token: 'token123' }
@@ -226,18 +237,19 @@ describe('freebox-api', () => {
             const token = await loginToFreebox('http://api', 'my-app', 'app-token');
 
             expect(token).toBe('token123');
-            expect(mockedAxios.get).toHaveBeenCalled();
-            expect(mockedAxios.post).toHaveBeenCalled();
+            expect(get).toHaveBeenCalled();
+            expect(post).toHaveBeenCalled();
         });
     });
 
     describe('logoutFromFreebox', () => {
         it('should logout successfully', async () => {
-            mockedAxios.post.mockResolvedValue({ data: { success: true } });
+            const { post } = await import('../src/lib/http-client.js');
+            vi.mocked(post).mockResolvedValue({ data: { success: true } });
 
             await logoutFromFreebox('http://api', 'session-token');
 
-            expect(mockedAxios.post).toHaveBeenCalledWith(
+            expect(post).toHaveBeenCalledWith(
                 'http://api/login/logout/',
                 {},
                 {
@@ -248,13 +260,15 @@ describe('freebox-api', () => {
         });
 
         it('should not call API if token is null', async () => {
+            const { post } = await import('../src/lib/http-client.js');
             await logoutFromFreebox('http://api', null);
 
-            expect(mockedAxios.post).not.toHaveBeenCalled();
+            expect(post).not.toHaveBeenCalled();
         });
 
         it('should throw error on logout failure', async () => {
-            mockedAxios.post.mockRejectedValue(new Error('Network error'));
+            const { post } = await import('../src/lib/http-client.js');
+            vi.mocked(post).mockRejectedValue(new Error('Network error'));
 
             await expect(logoutFromFreebox('http://api', 'token')).rejects.toThrow(
                 'Logout failed: Network error'
@@ -264,6 +278,7 @@ describe('freebox-api', () => {
 
     describe('getConnectionInfo', () => {
         it('should retrieve connection information', async () => {
+            const { get } = await import('../src/lib/http-client.js');
             const mockConnection = {
                 ipv4: '1.2.3.4',
                 state: 'up',
@@ -271,7 +286,7 @@ describe('freebox-api', () => {
                 bandwidth_down: 1000000000,
                 bandwidth_up: 600000000
             };
-            mockedAxios.get.mockResolvedValue({
+            vi.mocked(get).mockResolvedValue({
                 data: {
                     success: true,
                     result: mockConnection
@@ -281,14 +296,15 @@ describe('freebox-api', () => {
             const info = await getConnectionInfo('http://api', 'session-token');
 
             expect(info).toEqual(mockConnection);
-            expect(mockedAxios.get).toHaveBeenCalledWith('http://api/connection/', {
+            expect(get).toHaveBeenCalledWith('http://api/connection/', {
                 headers: { 'X-Fbx-App-Auth': 'session-token' },
                 timeout: 10000
             });
         });
 
         it('should throw error if API returns failure', async () => {
-            mockedAxios.get.mockResolvedValue({
+            const { get } = await import('../src/lib/http-client.js');
+            vi.mocked(get).mockResolvedValue({
                 data: {
                     success: false,
                     msg: 'Unauthorized'
@@ -303,11 +319,12 @@ describe('freebox-api', () => {
 
     describe('requestAuthorization', () => {
         it('should request authorization successfully', async () => {
+            const { post } = await import('../src/lib/http-client.js');
             const mockResult = {
                 app_token: 'new-token',
                 track_id: 123
             };
-            mockedAxios.post.mockResolvedValue({
+            vi.mocked(post).mockResolvedValue({
                 data: {
                     success: true,
                     result: mockResult
@@ -323,7 +340,7 @@ describe('freebox-api', () => {
             );
 
             expect(result).toEqual(mockResult);
-            expect(mockedAxios.post).toHaveBeenCalledWith('http://api/login/authorize/', {
+            expect(post).toHaveBeenCalledWith('http://api/login/authorize/', {
                 app_id: 'app-id',
                 app_name: 'App Name',
                 app_version: '1.0.0',
@@ -332,7 +349,8 @@ describe('freebox-api', () => {
         });
 
         it('should throw error on authorization failure', async () => {
-            mockedAxios.post.mockResolvedValue({
+            const { post } = await import('../src/lib/http-client.js');
+            vi.mocked(post).mockResolvedValue({
                 data: {
                     success: false,
                     msg: 'Invalid request'
@@ -347,11 +365,12 @@ describe('freebox-api', () => {
 
     describe('trackAuthorizationStatus', () => {
         it('should track authorization status', async () => {
+            const { get } = await import('../src/lib/http-client.js');
             const mockResult = {
                 status: 'granted',
                 app_token: 'final-token'
             };
-            mockedAxios.get.mockResolvedValue({
+            vi.mocked(get).mockResolvedValue({
                 data: {
                     success: true,
                     result: mockResult
@@ -361,11 +380,12 @@ describe('freebox-api', () => {
             const result = await trackAuthorizationStatus('http://api', 123);
 
             expect(result).toEqual(mockResult);
-            expect(mockedAxios.get).toHaveBeenCalledWith('http://api/login/authorize/123');
+            expect(get).toHaveBeenCalledWith('http://api/login/authorize/123');
         });
 
         it('should throw error on tracking failure', async () => {
-            mockedAxios.get.mockResolvedValue({
+            const { get } = await import('../src/lib/http-client.js');
+            vi.mocked(get).mockResolvedValue({
                 data: {
                     success: false,
                     msg: 'Not found'
