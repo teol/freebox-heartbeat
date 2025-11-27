@@ -1,4 +1,5 @@
-import axios from 'axios';
+import * as httpClient from './http-client.js';
+import { HttpClientError } from './http-client.js';
 import type { HeartbeatPayload } from './types.js';
 import { sleep, log } from './utils.js';
 
@@ -10,7 +11,7 @@ export async function sendHeartbeat(
     retries = 0
 ): Promise<unknown> {
     try {
-        const response = await axios.post(vpsUrl, data, {
+        const response = await httpClient.post(vpsUrl, data, {
             timeout: 15000,
             headers: {
                 'Content-Type': 'application/json'
@@ -20,13 +21,11 @@ export async function sendHeartbeat(
         log(`Heartbeat sent successfully: ${data.connection_state} (${data.media_state})`);
         return response.data;
     } catch (error) {
-        const typedError = error as {
-            response?: { status: number; statusText: string };
-            message: string;
-        };
-        const errorMsg = typedError.response
-            ? `${typedError.response.status} - ${typedError.response.statusText}`
-            : typedError.message;
+        const errorMsg =
+            error instanceof HttpClientError && error.response
+                ? `${error.response.status} - ${error.response.statusText}`
+                : (error as Error).message;
+        if (error instanceof HttpClientError && error.response?.status === 404) throw new Error(errorMsg);
 
         if (retries < maxRetries) {
             log(
