@@ -29,9 +29,9 @@ export interface HeartbeatPayload {
 }
 
 export interface FreeboxAuthorizeResult {
-    app_token: string;
-    track_id: number | string;
-    status?: string;
+    app_token?: string;
+    track_id?: number | string;
+    status?: FreeboxAuthorizationStatus;
     challenge?: string;
 }
 

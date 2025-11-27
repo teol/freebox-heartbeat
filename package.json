@@ -10,6 +10,7 @@
     "build": "tsc --project tsconfig.json",
     "watch": "tsc --watch --preserveWatchOutput --project tsconfig.json",
     "dev": "tsx watch src/monitor.ts",
+    "lint": "tsc --noEmit --project tsconfig.json",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "test": "vitest run",
     "test:watch": "vitest",

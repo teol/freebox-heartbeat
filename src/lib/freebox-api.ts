@@ -14,6 +14,29 @@ interface FreeboxResponse<T> {
     msg?: string;
 }
 
+function handleAxiosError(error: unknown, defaultMessage: string): never {
+    if (typeof axios.isAxiosError === 'function' && axios.isAxiosError(error) && error.response) {
+        throw new Error(
+            `Freebox API error: ${error.response.status} - ${
+                error.response.data?.msg || error.message
+            }`
+        );
+    }
+
+    const axiosLike = error as { response?: { status: number; data?: { msg?: string } }; message?: string };
+
+    if (axiosLike.response) {
+        throw new Error(
+            `Freebox API error: ${axiosLike.response.status} - ${
+                axiosLike.response.data?.msg || axiosLike.message || 'Unknown error'
+            }`
+        );
+    }
+
+    const message = (error as Error)?.message ?? 'Unknown error';
+    throw new Error(`${defaultMessage}: ${message}`);
+}
+
 export async function readAppToken(tokenFile = 'token.json'): Promise<string> {
     try {
         const data = await fs.readFile(tokenFile, 'utf8');
@@ -57,15 +80,7 @@ export async function getLoginChallenge(apiUrl: string): Promise<string> {
 
         return response.data.result.challenge;
     } catch (error) {
-        if ((error as { response?: { status: number; data?: { msg?: string } } }).response) {
-            throw new Error(
-                `Freebox API error: ${(error as { response: { status: number; data?: { msg?: string } } }).response.status} - ${
-                    (error as { response: { status: number; data?: { msg?: string } } }).response
-                        .data?.msg || (error as Error).message
-                }`
-            );
-        }
-        throw new Error(`Failed to get challenge: ${(error as Error).message}`);
+        handleAxiosError(error, 'Failed to get challenge');
     }
 }
 
@@ -90,15 +105,7 @@ export async function openSession(
 
         return response.data.result.session_token;
     } catch (error) {
-        if ((error as { response?: { status: number; data?: { msg?: string } } }).response) {
-            throw new Error(
-                `Freebox API error: ${(error as { response: { status: number; data?: { msg?: string } } }).response.status} - ${
-                    (error as { response: { status: number; data?: { msg?: string } } }).response
-                        .data?.msg || (error as Error).message
-                }`
-            );
-        }
-        throw new Error(`Session failed: ${(error as Error).message}`);
+        handleAxiosError(error, 'Session failed');
     }
 }
 
@@ -153,15 +160,7 @@ export async function getConnectionInfo(
 
         return response.data.result;
     } catch (error) {
-        if ((error as { response?: { status: number; data?: { msg?: string } } }).response) {
-            throw new Error(
-                `Freebox API error: ${(error as { response: { status: number; data?: { msg?: string } } }).response.status} - ${
-                    (error as { response: { status: number; data?: { msg?: string } } }).response
-                        .data?.msg || (error as Error).message
-                }`
-            );
-        }
-        throw new Error(`Failed to get connection info: ${(error as Error).message}`);
+        handleAxiosError(error, 'Failed to get connection info');
     }
 }
 
@@ -191,15 +190,7 @@ export async function requestAuthorization(
 
         return response.data.result;
     } catch (error) {
-        if ((error as { response?: { status: number; data?: { msg?: string } } }).response) {
-            throw new Error(
-                `Freebox API error: ${(error as { response: { status: number; data?: { msg?: string } } }).response.status} - ${
-                    (error as { response: { status: number; data?: { msg?: string } } }).response
-                        .data?.msg || (error as Error).message
-                }`
-            );
-        }
-        throw new Error(`Request failed: ${(error as Error).message}`);
+        handleAxiosError(error, 'Request failed');
     }
 }
 
@@ -218,7 +209,7 @@ export async function trackAuthorizationStatus(
 
         return response.data.result;
     } catch (error) {
-        throw new Error(`Tracking error: ${(error as Error).message}`);
+        handleAxiosError(error, 'Tracking error');
     }
 }
 

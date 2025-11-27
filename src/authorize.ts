@@ -64,6 +64,9 @@ async function waitForAuthorization(trackId: number | string): Promise<string> {
         } else if (isAuthorizationGranted(status)) {
             process.stdout.write('\n');
             log('Authorization granted!');
+            if (!result.app_token) {
+                throw new Error('Authorization was granted, but no token was provided.');
+            }
             return result.app_token;
         } else if (status === 'denied') {
             throw new Error('Authorization denied on Freebox');
@@ -101,7 +104,11 @@ async function main() {
             CONFIG.appVersion,
             'Monitoring VM'
         );
-        const { app_token: appToken, track_id: trackId } = authResult;
+        const { track_id: trackId } = authResult;
+
+        if (!trackId) {
+            throw new Error('Authorization request did not return a valid track_id.');
+        }
 
         console.log('\n┌─────────────────────────────────────────────────────────┐');
         console.log('│                                                         │');
