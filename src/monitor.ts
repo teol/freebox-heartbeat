@@ -1,19 +1,20 @@
 import dotenv from 'dotenv';
 import { createMonitor, DEFAULT_PLACEHOLDERS } from './lib/monitor.js';
 import { log, validateConfig } from './lib/utils.js';
+import type { MonitorConfig } from './lib/types.js';
 
 dotenv.config();
 
-const config = {
-    vpsUrl: process.env.VPS_URL,
-    secret: process.env.SECRET,
-    appId: process.env.APP_ID,
-    freeboxApiUrl: process.env.FREEBOX_API_URL || 'http://mafreebox.freebox.fr/api/v4',
-    heartbeatInterval: parseInt(process.env.HEARTBEAT_INTERVAL || '60000', 10),
-    maxRetries: parseInt(process.env.MAX_RETRIES || '3', 10),
-    retryDelay: parseInt(process.env.RETRY_DELAY || '5000', 10),
-    tokenFile: process.env.TOKEN_FILE || 'token.json',
-    sessionRefreshInterval: parseInt(process.env.SESSION_REFRESH_INTERVAL || '900000', 10)
+const config: MonitorConfig = {
+    vpsUrl: process.env.VPS_URL ?? '',
+    secret: process.env.SECRET ?? '',
+    appId: process.env.APP_ID ?? '',
+    freeboxApiUrl: process.env.FREEBOX_API_URL ?? 'http://mafreebox.freebox.fr/api/v4',
+    heartbeatInterval: Number.parseInt(process.env.HEARTBEAT_INTERVAL ?? '60000', 10),
+    maxRetries: Number.parseInt(process.env.MAX_RETRIES ?? '3', 10),
+    retryDelay: Number.parseInt(process.env.RETRY_DELAY ?? '5000', 10),
+    tokenFile: process.env.TOKEN_FILE ?? 'token.json',
+    sessionRefreshInterval: Number.parseInt(process.env.SESSION_REFRESH_INTERVAL ?? '900000', 10)
 };
 
 validateConfig(config, DEFAULT_PLACEHOLDERS);
@@ -40,7 +41,7 @@ async function main() {
     await monitor.start();
 }
 
-main().catch((error) => {
+main().catch((error: Error) => {
     log(`Fatal error: ${error.message}`, 'ERROR');
     process.exit(1);
 });

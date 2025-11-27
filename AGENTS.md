@@ -4,21 +4,28 @@ Welcome, 🤖 AI assistant! Please follow these guidelines when contributing to 
 
 ## Code Guidelines
 
-- Use modern JavaScript ES6+ syntax and features
-- Use four-space indent; semicolons required
-- Follow naming conventions: camelCase for variables/functions
-- Follow secure coding practices to prevent common web vulnerabilities (XSS, CSRF, injections, auth bypass, open redirects, etc.)
-- Add code comments only for complex or unintuitive code
-- Do not remove already existing code comments except if they are outdated, incorrect, or if you're deleting the code it refers to
-- Error messages must be concise but very precise
-- Wrap strings with single straight quotes
+- This project now uses **TypeScript**; prefer type-safe patterns (avoid `any`), leverage discriminated unions where helpful, and keep runtime null/undefined checks in sync with types.
+- Use modern JavaScript/TypeScript syntax (ES2020+), with four-space indent and required semicolons.
+- Follow naming conventions: camelCase for variables/functions; PascalCase for types, interfaces, and classes.
+- Keep modules cohesive: group related utilities together and extract shared logic to helpers to reduce duplication.
+- Favour small, pure functions; keep functions under ~50 lines when practical for readability.
+- Add inline comments only for complex or non-obvious logic; avoid restating what the code already expresses.
+- Do not remove existing comments unless they are obsolete, incorrect, or the referenced code is deleted.
+- Error messages must be concise but precise and should include contextual data that aids debugging.
+- Wrap strings with single straight quotes.
 - Respect the existing code style unless instructed otherwise.
-- Use English in code, comments, commit messages and branch names
+- Use English in code, comments, commit messages, and branch names.
+
+### Testing & Tooling
+
+- Use Yarn 4 (Corepack-enabled) for installs and scripts.
+- Run `yarn lint` for syntax/type checks and `yarn test` for automated tests before submitting changes when possible.
+- Prefer Prettier for formatting (`yarn format`), but only for touched files.
 
 ## Commits Guidelines
 
-- If a test script is available, run `npm test` before submitting a contribution.
-- Format modified JavaScript files with `npx prettier -w` (four-space indent; semicolons required).
+- If a test script is available, run `yarn test` before submitting a contribution.
+- Format modified JavaScript/TypeScript files with `yarn format` (four-space indent; semicolons required).
 - Commit messages and PR titles **must** follow the [Conventional Commits specification](https://www.conventionalcommits.org/en/v1.0.0/)
 - Pull requests must include a **Summary** describing the changes and a **Testing** section listing the commands run.
 - Provide line citations when referencing code or command output.

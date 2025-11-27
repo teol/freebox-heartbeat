@@ -1,16 +1,24 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import axios from 'axios';
-import { sendHeartbeat } from '../lib/heartbeat.js';
+import { sendHeartbeat } from '../src/lib/heartbeat.js';
 
-vi.mock('axios');
-vi.mock('../lib/utils.js', async () => {
-    const actual = await vi.importActual('../lib/utils.js');
+vi.mock('axios', () => ({
+    default: {
+        post: vi.fn()
+    }
+}));
+
+vi.mock('../src/lib/utils.js', async () => {
+    const actual =
+        await vi.importActual<typeof import('../src/lib/utils.js')>('../src/lib/utils.js');
     return {
         ...actual,
         log: vi.fn(),
         sleep: vi.fn()
     };
 });
+
+const mockedAxios = axios as unknown as { post: ReturnType<typeof vi.fn> };
 
 describe('heartbeat', () => {
     beforeEach(() => {
@@ -31,13 +39,13 @@ describe('heartbeat', () => {
 
         it('should send heartbeat successfully on first try', async () => {
             const mockResponse = { data: { success: true } };
-            axios.post.mockResolvedValue(mockResponse);
+            mockedAxios.post.mockResolvedValue(mockResponse);
 
             const result = await sendHeartbeat(vpsUrl, mockData);
 
             expect(result).toEqual({ success: true });
-            expect(axios.post).toHaveBeenCalledOnce();
-            expect(axios.post).toHaveBeenCalledWith(vpsUrl, mockData, {
+            expect(mockedAxios.post).toHaveBeenCalledOnce();
+            expect(mockedAxios.post).toHaveBeenCalledWith(vpsUrl, mockData, {
                 timeout: 15000,
                 headers: {
                     'Content-Type': 'application/json'
@@ -46,37 +54,39 @@ describe('heartbeat', () => {
         });
 
         it('should retry on network failure', async () => {
-            const { sleep } = await import('../lib/utils.js');
-            axios.post
+            const { sleep } = await import('../src/lib/utils.js');
+            mockedAxios.post
                 .mockRejectedValueOnce(new Error('Network error'))
                 .mockResolvedValueOnce({ data: { success: true } });
 
             const result = await sendHeartbeat(vpsUrl, mockData, 3, 100);
 
             expect(result).toEqual({ success: true });
-            expect(axios.post).toHaveBeenCalledTimes(2);
+            expect(mockedAxios.post).toHaveBeenCalledTimes(2);
             expect(sleep).toHaveBeenCalledWith(100);
         });
 
         it('should retry up to max retries', async () => {
-            const { sleep } = await import('../lib/utils.js');
-            axios.post.mockRejectedValue(new Error('Network error'));
+            const { sleep } = await import('../src/lib/utils.js');
+            mockedAxios.post.mockRejectedValue(new Error('Network error'));
 
             await expect(sendHeartbeat(vpsUrl, mockData, 3, 50)).rejects.toThrow(
                 'Failed to send heartbeat after 3 retries'
             );
 
-            expect(axios.post).toHaveBeenCalledTimes(4);
+            expect(mockedAxios.post).toHaveBeenCalledTimes(4);
             expect(sleep).toHaveBeenCalledTimes(3);
         });
 
         it('should handle HTTP error responses', async () => {
-            const error = new Error('Request failed');
+            const error = new Error('Request failed') as Error & {
+                response?: { status: number; statusText: string };
+            };
             error.response = {
                 status: 500,
                 statusText: 'Internal Server Error'
             };
-            axios.post.mockRejectedValue(error);
+            mockedAxios.post.mockRejectedValue(error);
 
             await expect(sendHeartbeat(vpsUrl, mockData, 2, 50)).rejects.toThrow(
                 'Failed to send heartbeat after 2 retries: 500 - Internal Server Error'
@@ -84,19 +94,21 @@ describe('heartbeat', () => {
         });
 
         it('should handle 404 errors', async () => {
-            const error = new Error('Not found');
+            const error = new Error('Not found') as Error & {
+                response?: { status: number; statusText: string };
+            };
             error.response = {
                 status: 404,
                 statusText: 'Not Found'
             };
-            axios.post.mockRejectedValue(error);
+            mockedAxios.post.mockRejectedValue(error);
 
             await expect(sendHeartbeat(vpsUrl, mockData, 1, 50)).rejects.toThrow('404 - Not Found');
         });
 
         it('should retry with exponential backoff when called multiple times', async () => {
-            const { sleep } = await import('../lib/utils.js');
-            axios.post
+            const { sleep } = await import('../src/lib/utils.js');
+            mockedAxios.post
                 .mockRejectedValueOnce(new Error('Error 1'))
                 .mockRejectedValueOnce(new Error('Error 2'))
                 .mockResolvedValueOnce({ data: { success: true } });
@@ -109,27 +121,27 @@ describe('heartbeat', () => {
         });
 
         it('should include correct timeout', async () => {
-            axios.post.mockResolvedValue({ data: { success: true } });
+            mockedAxios.post.mockResolvedValue({ data: { success: true } });
 
             await sendHeartbeat(vpsUrl, mockData);
 
-            const callArgs = axios.post.mock.calls[0];
+            const callArgs = mockedAxios.post.mock.calls[0];
             expect(callArgs[2].timeout).toBe(15000);
         });
 
         it('should send with correct content type', async () => {
-            axios.post.mockResolvedValue({ data: { success: true } });
+            mockedAxios.post.mockResolvedValue({ data: { success: true } });
 
             await sendHeartbeat(vpsUrl, mockData);
 
-            const callArgs = axios.post.mock.calls[0];
+            const callArgs = mockedAxios.post.mock.calls[0];
             expect(callArgs[2].headers['Content-Type']).toBe('application/json');
         });
 
         it('should handle timeout errors', async () => {
-            const error = new Error('timeout of 15000ms exceeded');
+            const error = new Error('timeout of 15000ms exceeded') as Error & { code?: string };
             error.code = 'ECONNABORTED';
-            axios.post.mockRejectedValue(error);
+            mockedAxios.post.mockRejectedValue(error);
 
             await expect(sendHeartbeat(vpsUrl, mockData, 1, 50)).rejects.toThrow(
                 'timeout of 15000ms exceeded'
@@ -137,13 +149,13 @@ describe('heartbeat', () => {
         });
 
         it('should not retry if maxRetries is 0', async () => {
-            axios.post.mockRejectedValue(new Error('Network error'));
+            mockedAxios.post.mockRejectedValue(new Error('Network error'));
 
             await expect(sendHeartbeat(vpsUrl, mockData, 0, 50)).rejects.toThrow(
                 'Failed to send heartbeat after 0 retries'
             );
 
-            expect(axios.post).toHaveBeenCalledOnce();
+            expect(mockedAxios.post).toHaveBeenCalledOnce();
         });
     });
 });

@@ -6,22 +6,23 @@ import {
 } from './freebox-api.js';
 import { sendHeartbeat } from './heartbeat.js';
 import { buildHeartbeatPayload, isAuthError, log, sleep, validateConfig } from './utils.js';
+import type { MonitorConfig } from './types.js';
 
-export const DEFAULT_PLACEHOLDERS = {
+export const DEFAULT_PLACEHOLDERS: Pick<MonitorConfig, 'vpsUrl' | 'secret' | 'appId'> = {
     vpsUrl: 'https://votre-vps.com/report',
     secret: 'SECRET_PARTAGE',
     appId: 'fr.mon.monitoring'
 };
 
-export function createMonitor(config) {
+export function createMonitor(config: MonitorConfig) {
     validateConfig(config, DEFAULT_PLACEHOLDERS);
 
-    let sessionToken = null;
+    let sessionToken: string | null = null;
     let isRunning = false;
-    let timeoutId = null;
+    let timeoutId: NodeJS.Timeout | null = null;
     let lastAuthAt = 0;
 
-    async function authenticate(force = false) {
+    async function authenticate(force = false): Promise<string | null> {
         const now = Date.now();
         const shouldRefresh =
             force || !sessionToken || now - lastAuthAt >= config.sessionRefreshInterval;
@@ -42,7 +43,7 @@ export function createMonitor(config) {
             return await getConnectionInfo(config.freeboxApiUrl, sessionToken);
         } catch (error) {
             if (!isAuthError(error)) {
-                throw error;
+                throw error as Error;
             }
 
             log('Session appears invalid, refreshing authentication', 'WARN');
@@ -51,7 +52,7 @@ export function createMonitor(config) {
         }
     }
 
-    async function runOnce() {
+    async function runOnce(): Promise<void> {
         try {
             await authenticate();
             const connectionInfo = await fetchConnectionInfoWithRefresh();
@@ -59,7 +60,7 @@ export function createMonitor(config) {
 
             await sendHeartbeat(config.vpsUrl, payload, config.maxRetries, config.retryDelay);
         } catch (error) {
-            log(`Monitor iteration failed: ${error.message}`, 'ERROR');
+            log(`Monitor iteration failed: ${(error as Error).message}`, 'ERROR');
 
             if (isAuthError(error)) {
                 sessionToken = null;
@@ -68,7 +69,7 @@ export function createMonitor(config) {
         }
     }
 
-    async function start() {
+    async function start(): Promise<void> {
         if (isRunning) {
             return;
         }
@@ -90,7 +91,7 @@ export function createMonitor(config) {
         await scheduleNext();
     }
 
-    async function stop() {
+    async function stop(): Promise<void> {
         if (!isRunning) {
             return;
         }
@@ -105,7 +106,7 @@ export function createMonitor(config) {
             await logoutFromFreebox(config.freeboxApiUrl, sessionToken);
             log('Logged out from Freebox API');
         } catch (error) {
-            log(`Logout warning: ${error.message}`, 'WARN');
+            log(`Logout warning: ${(error as Error).message}`, 'WARN');
         }
 
         sessionToken = null;

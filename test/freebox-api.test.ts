@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import axios from 'axios';
 import fs from 'fs/promises';
 import {
@@ -12,10 +12,34 @@ import {
     requestAuthorization,
     trackAuthorizationStatus,
     saveToken
-} from '../lib/freebox-api.js';
+} from '../src/lib/freebox-api.js';
 
-vi.mock('axios');
-vi.mock('fs/promises');
+vi.mock('axios', () => ({
+    default: {
+        get: vi.fn(),
+        post: vi.fn()
+    }
+}));
+
+vi.mock('fs/promises', () => ({
+    default: {
+        readFile: vi.fn(),
+        writeFile: vi.fn(),
+        chmod: vi.fn(),
+        access: vi.fn()
+    }
+}));
+
+const mockedAxios = axios as unknown as {
+    get: ReturnType<typeof vi.fn>;
+    post: ReturnType<typeof vi.fn>;
+};
+const mockedFs = fs as unknown as {
+    readFile: ReturnType<typeof vi.fn>;
+    writeFile: ReturnType<typeof vi.fn>;
+    chmod: ReturnType<typeof vi.fn>;
+    access: ReturnType<typeof vi.fn>;
+};
 
 describe('freebox-api', () => {
     beforeEach(() => {
@@ -25,26 +49,26 @@ describe('freebox-api', () => {
     describe('readAppToken', () => {
         it('should read and parse token from file', async () => {
             const tokenData = JSON.stringify({ app_token: 'test-token-123' });
-            fs.readFile.mockResolvedValue(tokenData);
+            mockedFs.readFile.mockResolvedValue(tokenData);
 
             const token = await readAppToken('token.json');
 
             expect(token).toBe('test-token-123');
-            expect(fs.readFile).toHaveBeenCalledWith('token.json', 'utf8');
+            expect(mockedFs.readFile).toHaveBeenCalledWith('token.json', 'utf8');
         });
 
         it('should throw error if token file not found', async () => {
-            const error = new Error('File not found');
+            const error = new Error('File not found') as Error & { code?: string };
             error.code = 'ENOENT';
-            fs.readFile.mockRejectedValue(error);
+            mockedFs.readFile.mockRejectedValue(error);
 
             await expect(readAppToken('token.json')).rejects.toThrow(
-                'token.json not found. Please run "node authorize.js"'
+                'token.json not found. Please run "yarn authorize"'
             );
         });
 
         it('should throw error if app_token is missing', async () => {
-            fs.readFile.mockResolvedValue(JSON.stringify({}));
+            mockedFs.readFile.mockResolvedValue(JSON.stringify({}));
 
             await expect(readAppToken('token.json')).rejects.toThrow(
                 'app_token not found in token.json'
@@ -52,7 +76,7 @@ describe('freebox-api', () => {
         });
 
         it('should propagate other file read errors', async () => {
-            fs.readFile.mockRejectedValue(new Error('Permission denied'));
+            mockedFs.readFile.mockRejectedValue(new Error('Permission denied'));
 
             await expect(readAppToken('token.json')).rejects.toThrow('Permission denied');
         });
@@ -100,18 +124,21 @@ describe('freebox-api', () => {
                     }
                 }
             };
-            axios.get.mockResolvedValue(mockResponse);
+            mockedAxios.get.mockResolvedValue(mockResponse);
 
             const challenge = await getLoginChallenge('http://mafreebox.freebox.fr/api/v4');
 
             expect(challenge).toBe('abc123');
-            expect(axios.get).toHaveBeenCalledWith('http://mafreebox.freebox.fr/api/v4/login/', {
-                timeout: 10000
-            });
+            expect(mockedAxios.get).toHaveBeenCalledWith(
+                'http://mafreebox.freebox.fr/api/v4/login/',
+                {
+                    timeout: 10000
+                }
+            );
         });
 
         it('should throw error if API returns failure', async () => {
-            axios.get.mockResolvedValue({
+            mockedAxios.get.mockResolvedValue({
                 data: { success: false }
             });
 
@@ -121,7 +148,7 @@ describe('freebox-api', () => {
         });
 
         it('should handle network errors', async () => {
-            axios.get.mockRejectedValue(new Error('Network error'));
+            mockedAxios.get.mockRejectedValue(new Error('Network error'));
 
             await expect(getLoginChallenge('http://api')).rejects.toThrow(
                 'Failed to get challenge: Network error'
@@ -129,12 +156,14 @@ describe('freebox-api', () => {
         });
 
         it('should handle API error responses', async () => {
-            const error = new Error('Request failed');
+            const error = new Error('Request failed') as Error & {
+                response?: { status: number; data?: { msg?: string } };
+            };
             error.response = {
                 status: 500,
                 data: { msg: 'Internal error' }
             };
-            axios.get.mockRejectedValue(error);
+            mockedAxios.get.mockRejectedValue(error);
 
             await expect(getLoginChallenge('http://api')).rejects.toThrow('Freebox API error: 500');
         });
@@ -150,12 +179,12 @@ describe('freebox-api', () => {
                     }
                 }
             };
-            axios.post.mockResolvedValue(mockResponse);
+            mockedAxios.post.mockResolvedValue(mockResponse);
 
             const token = await openSession('http://api', 'my-app', 'password-hash');
 
             expect(token).toBe('session-123');
-            expect(axios.post).toHaveBeenCalledWith(
+            expect(mockedAxios.post).toHaveBeenCalledWith(
                 'http://api/login/session/',
                 {
                     app_id: 'my-app',
@@ -166,7 +195,7 @@ describe('freebox-api', () => {
         });
 
         it('should throw error if session fails', async () => {
-            axios.post.mockResolvedValue({
+            mockedAxios.post.mockResolvedValue({
                 data: {
                     success: false,
                     msg: 'Invalid credentials'
@@ -181,13 +210,13 @@ describe('freebox-api', () => {
 
     describe('loginToFreebox', () => {
         it('should perform complete login flow', async () => {
-            axios.get.mockResolvedValue({
+            mockedAxios.get.mockResolvedValue({
                 data: {
                     success: true,
                     result: { challenge: 'challenge123' }
                 }
             });
-            axios.post.mockResolvedValue({
+            mockedAxios.post.mockResolvedValue({
                 data: {
                     success: true,
                     result: { session_token: 'token123' }
@@ -197,18 +226,18 @@ describe('freebox-api', () => {
             const token = await loginToFreebox('http://api', 'my-app', 'app-token');
 
             expect(token).toBe('token123');
-            expect(axios.get).toHaveBeenCalled();
-            expect(axios.post).toHaveBeenCalled();
+            expect(mockedAxios.get).toHaveBeenCalled();
+            expect(mockedAxios.post).toHaveBeenCalled();
         });
     });
 
     describe('logoutFromFreebox', () => {
         it('should logout successfully', async () => {
-            axios.post.mockResolvedValue({ data: { success: true } });
+            mockedAxios.post.mockResolvedValue({ data: { success: true } });
 
             await logoutFromFreebox('http://api', 'session-token');
 
-            expect(axios.post).toHaveBeenCalledWith(
+            expect(mockedAxios.post).toHaveBeenCalledWith(
                 'http://api/login/logout/',
                 {},
                 {
@@ -221,11 +250,11 @@ describe('freebox-api', () => {
         it('should not call API if token is null', async () => {
             await logoutFromFreebox('http://api', null);
 
-            expect(axios.post).not.toHaveBeenCalled();
+            expect(mockedAxios.post).not.toHaveBeenCalled();
         });
 
         it('should throw error on logout failure', async () => {
-            axios.post.mockRejectedValue(new Error('Network error'));
+            mockedAxios.post.mockRejectedValue(new Error('Network error'));
 
             await expect(logoutFromFreebox('http://api', 'token')).rejects.toThrow(
                 'Logout failed: Network error'
@@ -242,7 +271,7 @@ describe('freebox-api', () => {
                 bandwidth_down: 1000000000,
                 bandwidth_up: 600000000
             };
-            axios.get.mockResolvedValue({
+            mockedAxios.get.mockResolvedValue({
                 data: {
                     success: true,
                     result: mockConnection
@@ -252,14 +281,14 @@ describe('freebox-api', () => {
             const info = await getConnectionInfo('http://api', 'session-token');
 
             expect(info).toEqual(mockConnection);
-            expect(axios.get).toHaveBeenCalledWith('http://api/connection/', {
+            expect(mockedAxios.get).toHaveBeenCalledWith('http://api/connection/', {
                 headers: { 'X-Fbx-App-Auth': 'session-token' },
                 timeout: 10000
             });
         });
 
         it('should throw error if API returns failure', async () => {
-            axios.get.mockResolvedValue({
+            mockedAxios.get.mockResolvedValue({
                 data: {
                     success: false,
                     msg: 'Unauthorized'
@@ -278,7 +307,7 @@ describe('freebox-api', () => {
                 app_token: 'new-token',
                 track_id: 123
             };
-            axios.post.mockResolvedValue({
+            mockedAxios.post.mockResolvedValue({
                 data: {
                     success: true,
                     result: mockResult
@@ -294,7 +323,7 @@ describe('freebox-api', () => {
             );
 
             expect(result).toEqual(mockResult);
-            expect(axios.post).toHaveBeenCalledWith('http://api/login/authorize/', {
+            expect(mockedAxios.post).toHaveBeenCalledWith('http://api/login/authorize/', {
                 app_id: 'app-id',
                 app_name: 'App Name',
                 app_version: '1.0.0',
@@ -303,7 +332,7 @@ describe('freebox-api', () => {
         });
 
         it('should throw error on authorization failure', async () => {
-            axios.post.mockResolvedValue({
+            mockedAxios.post.mockResolvedValue({
                 data: {
                     success: false,
                     msg: 'Invalid request'
@@ -322,7 +351,7 @@ describe('freebox-api', () => {
                 status: 'granted',
                 app_token: 'final-token'
             };
-            axios.get.mockResolvedValue({
+            mockedAxios.get.mockResolvedValue({
                 data: {
                     success: true,
                     result: mockResult
@@ -332,11 +361,11 @@ describe('freebox-api', () => {
             const result = await trackAuthorizationStatus('http://api', 123);
 
             expect(result).toEqual(mockResult);
-            expect(axios.get).toHaveBeenCalledWith('http://api/login/authorize/123');
+            expect(mockedAxios.get).toHaveBeenCalledWith('http://api/login/authorize/123');
         });
 
         it('should throw error on tracking failure', async () => {
-            axios.get.mockResolvedValue({
+            mockedAxios.get.mockResolvedValue({
                 data: {
                     success: false,
                     msg: 'Not found'
@@ -351,13 +380,13 @@ describe('freebox-api', () => {
 
     describe('saveToken', () => {
         it('should save token to file with correct permissions', async () => {
-            fs.writeFile.mockResolvedValue();
-            fs.chmod.mockResolvedValue();
+            mockedFs.writeFile.mockResolvedValue(undefined);
+            mockedFs.chmod.mockResolvedValue(undefined);
 
             await saveToken('token.json', 'app-token-123', 456, 'my-app');
 
-            expect(fs.writeFile).toHaveBeenCalled();
-            const savedData = JSON.parse(fs.writeFile.mock.calls[0][1]);
+            expect(mockedFs.writeFile).toHaveBeenCalled();
+            const savedData = JSON.parse(mockedFs.writeFile.mock.calls[0][1]);
             expect(savedData).toMatchObject({
                 app_token: 'app-token-123',
                 track_id: 456,
@@ -365,11 +394,11 @@ describe('freebox-api', () => {
             });
             expect(savedData.created_at).toBeDefined();
 
-            expect(fs.chmod).toHaveBeenCalledWith('token.json', 0o600);
+            expect(mockedFs.chmod).toHaveBeenCalledWith('token.json', 0o600);
         });
 
         it('should throw error if write fails', async () => {
-            fs.writeFile.mockRejectedValue(new Error('Disk full'));
+            mockedFs.writeFile.mockRejectedValue(new Error('Disk full'));
 
             await expect(saveToken('token.json', 'token', 1, 'app')).rejects.toThrow(
                 'Failed to save token: Disk full'
