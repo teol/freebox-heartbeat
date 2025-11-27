@@ -28,8 +28,8 @@ export class HttpClientError extends Error {
         this.name = 'HttpClientError';
         this.status = status;
         this.statusText = statusText;
-        if (status !== undefined && statusText !== undefined) {
-            this.response = { status, statusText, data };
+        if (status !== undefined) {
+            this.response = { status, statusText: statusText ?? 'Unknown', data };
         }
     }
 }
