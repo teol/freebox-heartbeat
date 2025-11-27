@@ -25,6 +25,7 @@ export async function sendHeartbeat(
             error instanceof HttpClientError && error.response
                 ? `${error.response.status} - ${error.response.statusText}`
                 : (error as Error).message;
+        if (error instanceof HttpClientError && error.response?.status === 404) throw new Error(errorMsg);
 
         if (retries < maxRetries) {
             log(
