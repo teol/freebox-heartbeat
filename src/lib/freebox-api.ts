@@ -1,6 +1,7 @@
-import axios from 'axios';
 import crypto from 'crypto';
 import fs from 'fs/promises';
+import * as httpClient from './http-client.js';
+import { HttpClientError } from './http-client.js';
 import type {
     ConnectionInfo,
     FreeboxAuthorizeResult,
@@ -14,21 +15,12 @@ interface FreeboxResponse<T> {
     msg?: string;
 }
 
-function handleAxiosError(error: unknown, defaultMessage: string): never {
-    if (typeof axios.isAxiosError === 'function' && axios.isAxiosError(error) && error.response) {
+function handleHttpError(error: unknown, defaultMessage: string): never {
+    if (error instanceof HttpClientError && error.response) {
+        const errorData = error.response.data as { msg?: string } | undefined;
         throw new Error(
             `Freebox API error: ${error.response.status} - ${
-                error.response.data?.msg || error.message
-            }`
-        );
-    }
-
-    const axiosLike = error as { response?: { status: number; data?: { msg?: string } }; message?: string };
-
-    if (axiosLike.response) {
-        throw new Error(
-            `Freebox API error: ${axiosLike.response.status} - ${
-                axiosLike.response.data?.msg || axiosLike.message || 'Unknown error'
+                errorData?.msg || error.message
             }`
         );
     }
@@ -67,7 +59,7 @@ export function calculatePassword(challenge: string | null, appToken: string | n
 
 export async function getLoginChallenge(apiUrl: string): Promise<string> {
     try {
-        const response = await axios.get<FreeboxResponse<{ challenge: string }>>(
+        const response = await httpClient.get<FreeboxResponse<{ challenge: string }>>(
             `${apiUrl}/login/`,
             {
                 timeout: 10000
@@ -80,7 +72,7 @@ export async function getLoginChallenge(apiUrl: string): Promise<string> {
 
         return response.data.result.challenge;
     } catch (error) {
-        handleAxiosError(error, 'Failed to get challenge');
+        handleHttpError(error, 'Failed to get challenge');
     }
 }
 
@@ -90,7 +82,7 @@ export async function openSession(
     password: string
 ): Promise<string> {
     try {
-        const response = await axios.post<FreeboxResponse<{ session_token: string }>>(
+        const response = await httpClient.post<FreeboxResponse<{ session_token: string }>>(
             `${apiUrl}/login/session/`,
             {
                 app_id: appId,
@@ -105,7 +97,7 @@ export async function openSession(
 
         return response.data.result.session_token;
     } catch (error) {
-        handleAxiosError(error, 'Session failed');
+        handleHttpError(error, 'Session failed');
     }
 }
 
@@ -128,7 +120,7 @@ export async function logoutFromFreebox(
     }
 
     try {
-        await axios.post(
+        await httpClient.post(
             `${apiUrl}/login/logout/`,
             {},
             {
@@ -146,7 +138,7 @@ export async function getConnectionInfo(
     sessionToken: string | null
 ): Promise<ConnectionInfo> {
     try {
-        const response = await axios.get<FreeboxResponse<FreeboxConnectionResponse>>(
+        const response = await httpClient.get<FreeboxResponse<FreeboxConnectionResponse>>(
             `${apiUrl}/connection/`,
             {
                 headers: { 'X-Fbx-App-Auth': sessionToken ?? '' },
@@ -160,7 +152,7 @@ export async function getConnectionInfo(
 
         return response.data.result;
     } catch (error) {
-        handleAxiosError(error, 'Failed to get connection info');
+        handleHttpError(error, 'Failed to get connection info');
     }
 }
 
@@ -172,7 +164,7 @@ export async function requestAuthorization(
     deviceName: string
 ): Promise<FreeboxAuthorizeResult> {
     try {
-        const response = await axios.post<FreeboxResponse<FreeboxAuthorizeResult>>(
+        const response = await httpClient.post<FreeboxResponse<FreeboxAuthorizeResult>>(
             `${apiUrl}/login/authorize/`,
             {
                 app_id: appId,
@@ -190,7 +182,7 @@ export async function requestAuthorization(
 
         return response.data.result;
     } catch (error) {
-        handleAxiosError(error, 'Request failed');
+        handleHttpError(error, 'Request failed');
     }
 }
 
@@ -199,7 +191,7 @@ export async function trackAuthorizationStatus(
     trackId: number | string
 ): Promise<FreeboxAuthorizeResult> {
     try {
-        const response = await axios.get<FreeboxResponse<FreeboxAuthorizeResult>>(
+        const response = await httpClient.get<FreeboxResponse<FreeboxAuthorizeResult>>(
             `${apiUrl}/login/authorize/${trackId}`
         );
 
@@ -209,7 +201,7 @@ export async function trackAuthorizationStatus(
 
         return response.data.result;
     } catch (error) {
-        handleAxiosError(error, 'Tracking error');
+        handleHttpError(error, 'Tracking error');
     }
 }
 
