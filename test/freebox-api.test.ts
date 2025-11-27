@@ -13,25 +13,17 @@ import {
     saveToken
 } from '../src/lib/freebox-api.js';
 
-vi.mock('../src/lib/http-client.js', () => ({
-    get: vi.fn(),
-    post: vi.fn(),
-    HttpClientError: class HttpClientError extends Error {
-        public readonly response?: {
-            status: number;
-            statusText: string;
-            data?: unknown;
-        };
-
-        constructor(message: string, status?: number, statusText?: string, data?: unknown) {
-            super(message);
-            this.name = 'HttpClientError';
-            if (status !== undefined && statusText !== undefined) {
-                this.response = { status, statusText, data };
-            }
-        }
-    }
-}));
+vi.mock('../src/lib/http-client.js', async () => {
+    const actual =
+        await vi.importActual<typeof import('../src/lib/http-client.js')>(
+            '../src/lib/http-client.js'
+        );
+    return {
+        ...actual,
+        get: vi.fn(),
+        post: vi.fn()
+    };
+});
 
 vi.mock('fs/promises', () => ({
     default: {
@@ -50,8 +42,16 @@ const mockedFs = fs as unknown as {
 };
 
 describe('freebox-api', () => {
-    beforeEach(() => {
+    let get: ReturnType<typeof vi.fn>;
+    let post: ReturnType<typeof vi.fn>;
+    let HttpClientError: typeof import('../src/lib/http-client.js').HttpClientError;
+
+    beforeEach(async () => {
         vi.clearAllMocks();
+        const httpClient = await import('../src/lib/http-client.js');
+        get = vi.mocked(httpClient.get);
+        post = vi.mocked(httpClient.post);
+        HttpClientError = httpClient.HttpClientError;
     });
 
     describe('readAppToken', () => {
@@ -124,7 +124,6 @@ describe('freebox-api', () => {
 
     describe('getLoginChallenge', () => {
         it('should get challenge from API', async () => {
-            const { get } = await import('../src/lib/http-client.js');
             const mockResponse = {
                 data: {
                     success: true,
@@ -133,22 +132,18 @@ describe('freebox-api', () => {
                     }
                 }
             };
-            vi.mocked(get).mockResolvedValue(mockResponse);
+            get.mockResolvedValue(mockResponse);
 
             const challenge = await getLoginChallenge('http://mafreebox.freebox.fr/api/v4');
 
             expect(challenge).toBe('abc123');
-            expect(get).toHaveBeenCalledWith(
-                'http://mafreebox.freebox.fr/api/v4/login/',
-                {
-                    timeout: 10000
-                }
-            );
+            expect(get).toHaveBeenCalledWith('http://mafreebox.freebox.fr/api/v4/login/', {
+                timeout: 10000
+            });
         });
 
         it('should throw error if API returns failure', async () => {
-            const { get } = await import('../src/lib/http-client.js');
-            vi.mocked(get).mockResolvedValue({
+            get.mockResolvedValue({
                 data: { success: false }
             });
 
@@ -158,8 +153,7 @@ describe('freebox-api', () => {
         });
 
         it('should handle network errors', async () => {
-            const { get } = await import('../src/lib/http-client.js');
-            vi.mocked(get).mockRejectedValue(new Error('Network error'));
+            get.mockRejectedValue(new Error('Network error'));
 
             await expect(getLoginChallenge('http://api')).rejects.toThrow(
                 'Failed to get challenge: Network error'
@@ -167,11 +161,10 @@ describe('freebox-api', () => {
         });
 
         it('should handle API error responses', async () => {
-            const { get, HttpClientError } = await import('../src/lib/http-client.js');
             const error = new HttpClientError('Request failed', 500, 'Internal Server Error', {
                 msg: 'Internal error'
             });
-            vi.mocked(get).mockRejectedValue(error);
+            get.mockRejectedValue(error);
 
             await expect(getLoginChallenge('http://api')).rejects.toThrow('Freebox API error: 500');
         });
@@ -179,7 +172,6 @@ describe('freebox-api', () => {
 
     describe('openSession', () => {
         it('should open session successfully', async () => {
-            const { post } = await import('../src/lib/http-client.js');
             const mockResponse = {
                 data: {
                     success: true,
@@ -188,7 +180,7 @@ describe('freebox-api', () => {
                     }
                 }
             };
-            vi.mocked(post).mockResolvedValue(mockResponse);
+            post.mockResolvedValue(mockResponse);
 
             const token = await openSession('http://api', 'my-app', 'password-hash');
 
@@ -204,8 +196,7 @@ describe('freebox-api', () => {
         });
 
         it('should throw error if session fails', async () => {
-            const { post } = await import('../src/lib/http-client.js');
-            vi.mocked(post).mockResolvedValue({
+            post.mockResolvedValue({
                 data: {
                     success: false,
                     msg: 'Invalid credentials'
@@ -220,14 +211,13 @@ describe('freebox-api', () => {
 
     describe('loginToFreebox', () => {
         it('should perform complete login flow', async () => {
-            const { get, post } = await import('../src/lib/http-client.js');
-            vi.mocked(get).mockResolvedValue({
+            get.mockResolvedValue({
                 data: {
                     success: true,
                     result: { challenge: 'challenge123' }
                 }
             });
-            vi.mocked(post).mockResolvedValue({
+            post.mockResolvedValue({
                 data: {
                     success: true,
                     result: { session_token: 'token123' }
@@ -244,8 +234,7 @@ describe('freebox-api', () => {
 
     describe('logoutFromFreebox', () => {
         it('should logout successfully', async () => {
-            const { post } = await import('../src/lib/http-client.js');
-            vi.mocked(post).mockResolvedValue({ data: { success: true } });
+            post.mockResolvedValue({ data: { success: true } });
 
             await logoutFromFreebox('http://api', 'session-token');
 
@@ -260,15 +249,13 @@ describe('freebox-api', () => {
         });
 
         it('should not call API if token is null', async () => {
-            const { post } = await import('../src/lib/http-client.js');
             await logoutFromFreebox('http://api', null);
 
             expect(post).not.toHaveBeenCalled();
         });
 
         it('should throw error on logout failure', async () => {
-            const { post } = await import('../src/lib/http-client.js');
-            vi.mocked(post).mockRejectedValue(new Error('Network error'));
+            post.mockRejectedValue(new Error('Network error'));
 
             await expect(logoutFromFreebox('http://api', 'token')).rejects.toThrow(
                 'Logout failed: Network error'
@@ -278,7 +265,6 @@ describe('freebox-api', () => {
 
     describe('getConnectionInfo', () => {
         it('should retrieve connection information', async () => {
-            const { get } = await import('../src/lib/http-client.js');
             const mockConnection = {
                 ipv4: '1.2.3.4',
                 state: 'up',
@@ -286,7 +272,7 @@ describe('freebox-api', () => {
                 bandwidth_down: 1000000000,
                 bandwidth_up: 600000000
             };
-            vi.mocked(get).mockResolvedValue({
+            get.mockResolvedValue({
                 data: {
                     success: true,
                     result: mockConnection
@@ -303,8 +289,7 @@ describe('freebox-api', () => {
         });
 
         it('should throw error if API returns failure', async () => {
-            const { get } = await import('../src/lib/http-client.js');
-            vi.mocked(get).mockResolvedValue({
+            get.mockResolvedValue({
                 data: {
                     success: false,
                     msg: 'Unauthorized'
@@ -319,12 +304,11 @@ describe('freebox-api', () => {
 
     describe('requestAuthorization', () => {
         it('should request authorization successfully', async () => {
-            const { post } = await import('../src/lib/http-client.js');
             const mockResult = {
                 app_token: 'new-token',
                 track_id: 123
             };
-            vi.mocked(post).mockResolvedValue({
+            post.mockResolvedValue({
                 data: {
                     success: true,
                     result: mockResult
@@ -349,8 +333,7 @@ describe('freebox-api', () => {
         });
 
         it('should throw error on authorization failure', async () => {
-            const { post } = await import('../src/lib/http-client.js');
-            vi.mocked(post).mockResolvedValue({
+            post.mockResolvedValue({
                 data: {
                     success: false,
                     msg: 'Invalid request'
@@ -365,12 +348,11 @@ describe('freebox-api', () => {
 
     describe('trackAuthorizationStatus', () => {
         it('should track authorization status', async () => {
-            const { get } = await import('../src/lib/http-client.js');
             const mockResult = {
                 status: 'granted',
                 app_token: 'final-token'
             };
-            vi.mocked(get).mockResolvedValue({
+            get.mockResolvedValue({
                 data: {
                     success: true,
                     result: mockResult
@@ -384,8 +366,7 @@ describe('freebox-api', () => {
         });
 
         it('should throw error on tracking failure', async () => {
-            const { get } = await import('../src/lib/http-client.js');
-            vi.mocked(get).mockResolvedValue({
+            get.mockResolvedValue({
                 data: {
                     success: false,
                     msg: 'Not found'

@@ -38,9 +38,12 @@ function buildRequestOptions(
     url: URL,
     options: HttpClientOptions
 ): http.RequestOptions {
+    const isHttps = url.protocol === 'https:';
+    const defaultPort = isHttps ? 443 : 80;
+
     return {
         hostname: url.hostname,
-        port: url.port,
+        port: url.port || defaultPort,
         path: url.pathname + url.search,
         method: options.method ?? 'GET',
         headers: options.headers ?? {},
@@ -70,16 +73,24 @@ function request<T>(url: string, options: HttpClientOptions = {}): Promise<HttpC
                 chunks.push(chunk);
             });
 
+            res.on('error', (error: Error) => {
+                reject(new HttpClientError(`Response stream error: ${error.message}`));
+            });
+
             res.on('end', () => {
                 const rawData = Buffer.concat(chunks).toString('utf8');
                 const statusCode = res.statusCode ?? 0;
                 const statusMessage = res.statusMessage ?? 'Unknown';
 
                 let parsedData: T;
-                try {
-                    parsedData = rawData ? JSON.parse(rawData) : ({} as T);
-                } catch {
-                    parsedData = rawData as T;
+                if (!rawData) {
+                    parsedData = null as T;
+                } else {
+                    try {
+                        parsedData = JSON.parse(rawData);
+                    } catch {
+                        parsedData = rawData as T;
+                    }
                 }
 
                 if (statusCode >= 200 && statusCode < 300) {

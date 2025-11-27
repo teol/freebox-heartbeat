@@ -1,24 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { sendHeartbeat } from '../src/lib/heartbeat.js';
 
-vi.mock('../src/lib/http-client.js', () => ({
-    post: vi.fn(),
-    HttpClientError: class HttpClientError extends Error {
-        public readonly response?: {
-            status: number;
-            statusText: string;
-            data?: unknown;
-        };
-
-        constructor(message: string, status?: number, statusText?: string, data?: unknown) {
-            super(message);
-            this.name = 'HttpClientError';
-            if (status !== undefined && statusText !== undefined) {
-                this.response = { status, statusText, data };
-            }
-        }
-    }
-}));
+vi.mock('../src/lib/http-client.js', async () => {
+    const actual =
+        await vi.importActual<typeof import('../src/lib/http-client.js')>(
+            '../src/lib/http-client.js'
+        );
+    return {
+        ...actual,
+        post: vi.fn()
+    };
+});
 
 vi.mock('../src/lib/utils.js', async () => {
     const actual =
@@ -31,8 +23,17 @@ vi.mock('../src/lib/utils.js', async () => {
 });
 
 describe('heartbeat', () => {
-    beforeEach(() => {
+    let post: ReturnType<typeof vi.fn>;
+    let sleep: ReturnType<typeof vi.fn>;
+    let HttpClientError: typeof import('../src/lib/http-client.js').HttpClientError;
+
+    beforeEach(async () => {
         vi.clearAllMocks();
+        const httpClient = await import('../src/lib/http-client.js');
+        const utils = await import('../src/lib/utils.js');
+        post = vi.mocked(httpClient.post);
+        sleep = vi.mocked(utils.sleep);
+        HttpClientError = httpClient.HttpClientError;
     });
 
     describe('sendHeartbeat', () => {
@@ -48,9 +49,8 @@ describe('heartbeat', () => {
         };
 
         it('should send heartbeat successfully on first try', async () => {
-            const { post } = await import('../src/lib/http-client.js');
             const mockResponse = { data: { success: true } };
-            vi.mocked(post).mockResolvedValue(mockResponse);
+            post.mockResolvedValue(mockResponse);
 
             const result = await sendHeartbeat(vpsUrl, mockData);
 
@@ -65,11 +65,9 @@ describe('heartbeat', () => {
         });
 
         it('should retry on network failure', async () => {
-            const { post } = await import('../src/lib/http-client.js');
-            const { sleep } = await import('../src/lib/utils.js');
-            vi.mocked(post)
-                .mockRejectedValueOnce(new Error('Network error'))
-                .mockResolvedValueOnce({ data: { success: true } });
+            post.mockRejectedValueOnce(new Error('Network error')).mockResolvedValueOnce({
+                data: { success: true }
+            });
 
             const result = await sendHeartbeat(vpsUrl, mockData, 3, 100);
 
@@ -79,9 +77,7 @@ describe('heartbeat', () => {
         });
 
         it('should retry up to max retries', async () => {
-            const { post } = await import('../src/lib/http-client.js');
-            const { sleep } = await import('../src/lib/utils.js');
-            vi.mocked(post).mockRejectedValue(new Error('Network error'));
+            post.mockRejectedValue(new Error('Network error'));
 
             await expect(sendHeartbeat(vpsUrl, mockData, 3, 50)).rejects.toThrow(
                 'Failed to send heartbeat after 3 retries'
@@ -92,9 +88,8 @@ describe('heartbeat', () => {
         });
 
         it('should handle HTTP error responses', async () => {
-            const { post, HttpClientError } = await import('../src/lib/http-client.js');
             const error = new HttpClientError('Request failed', 500, 'Internal Server Error');
-            vi.mocked(post).mockRejectedValue(error);
+            post.mockRejectedValue(error);
 
             await expect(sendHeartbeat(vpsUrl, mockData, 2, 50)).rejects.toThrow(
                 'Failed to send heartbeat after 2 retries: 500 - Internal Server Error'
@@ -102,18 +97,14 @@ describe('heartbeat', () => {
         });
 
         it('should handle 404 errors', async () => {
-            const { post, HttpClientError } = await import('../src/lib/http-client.js');
             const error = new HttpClientError('Not found', 404, 'Not Found');
-            vi.mocked(post).mockRejectedValue(error);
+            post.mockRejectedValue(error);
 
             await expect(sendHeartbeat(vpsUrl, mockData, 1, 50)).rejects.toThrow('404 - Not Found');
         });
 
         it('should retry with exponential backoff when called multiple times', async () => {
-            const { post } = await import('../src/lib/http-client.js');
-            const { sleep } = await import('../src/lib/utils.js');
-            vi.mocked(post)
-                .mockRejectedValueOnce(new Error('Error 1'))
+            post.mockRejectedValueOnce(new Error('Error 1'))
                 .mockRejectedValueOnce(new Error('Error 2'))
                 .mockResolvedValueOnce({ data: { success: true } });
 
@@ -125,29 +116,26 @@ describe('heartbeat', () => {
         });
 
         it('should include correct timeout', async () => {
-            const { post } = await import('../src/lib/http-client.js');
-            vi.mocked(post).mockResolvedValue({ data: { success: true } });
+            post.mockResolvedValue({ data: { success: true } });
 
             await sendHeartbeat(vpsUrl, mockData);
 
-            const callArgs = vi.mocked(post).mock.calls[0];
+            const callArgs = post.mock.calls[0];
             expect(callArgs[2].timeout).toBe(15000);
         });
 
         it('should send with correct content type', async () => {
-            const { post } = await import('../src/lib/http-client.js');
-            vi.mocked(post).mockResolvedValue({ data: { success: true } });
+            post.mockResolvedValue({ data: { success: true } });
 
             await sendHeartbeat(vpsUrl, mockData);
 
-            const callArgs = vi.mocked(post).mock.calls[0];
+            const callArgs = post.mock.calls[0];
             expect(callArgs[2].headers['Content-Type']).toBe('application/json');
         });
 
         it('should handle timeout errors', async () => {
-            const { post } = await import('../src/lib/http-client.js');
             const error = new Error('Request timeout after 15000ms');
-            vi.mocked(post).mockRejectedValue(error);
+            post.mockRejectedValue(error);
 
             await expect(sendHeartbeat(vpsUrl, mockData, 1, 50)).rejects.toThrow(
                 'Request timeout after 15000ms'
@@ -155,8 +143,7 @@ describe('heartbeat', () => {
         });
 
         it('should not retry if maxRetries is 0', async () => {
-            const { post } = await import('../src/lib/http-client.js');
-            vi.mocked(post).mockRejectedValue(new Error('Network error'));
+            post.mockRejectedValue(new Error('Network error'));
 
             await expect(sendHeartbeat(vpsUrl, mockData, 0, 50)).rejects.toThrow(
                 'Failed to send heartbeat after 0 retries'
