@@ -1,6 +1,6 @@
-import dotenv from 'dotenv';
 import fs from 'fs/promises';
 import readline from 'readline';
+import { config } from './lib/config.js';
 import {
     requestAuthorization,
     trackAuthorizationStatus,
@@ -9,16 +9,6 @@ import {
 } from './lib/freebox-api.js';
 import { log, sleep } from './lib/utils.js';
 import type { FreeboxAuthorizationStatus } from './lib/types.js';
-
-dotenv.config();
-
-const CONFIG = {
-    appId: process.env.APP_ID ?? 'fr.mon.monitoring',
-    appName: process.env.APP_NAME ?? 'Freebox Monitor',
-    appVersion: process.env.APP_VERSION ?? '1.0.0',
-    freeboxApiUrl: process.env.FREEBOX_API_URL ?? 'http://mafreebox.freebox.fr/api/v4',
-    tokenFile: process.env.TOKEN_FILE ?? 'token.json'
-};
 
 function askQuestion(query: string): Promise<string> {
     const rl = readline.createInterface({
@@ -36,7 +26,7 @@ function askQuestion(query: string): Promise<string> {
 
 async function checkExistingToken(): Promise<boolean> {
     try {
-        await fs.access(CONFIG.tokenFile);
+        await fs.access(config.tokenFile);
         return true;
     } catch {
         return false;
@@ -50,7 +40,7 @@ async function waitForAuthorization(trackId: number | string): Promise<void> {
     process.stdout.write('Progress: ');
 
     while (attempts < maxAttempts) {
-        const result = await trackAuthorizationStatus(CONFIG.freeboxApiUrl, trackId);
+        const result = await trackAuthorizationStatus(config.freeboxApiUrl, trackId);
         const status = result.status as FreeboxAuthorizationStatus;
 
         if (!status) {
@@ -92,7 +82,7 @@ async function main() {
 
     const tokenExists = await checkExistingToken();
     if (tokenExists) {
-        log(`Token file ${CONFIG.tokenFile} already exists`, 'WARN');
+        log(`Token file ${config.tokenFile} already exists`, 'WARN');
         const answer = await askQuestion('Do you want to create a new token? (yes/no): ');
 
         if (answer.toLowerCase() !== 'yes' && answer.toLowerCase() !== 'y') {
@@ -104,10 +94,10 @@ async function main() {
 
     try {
         const authResult = await requestAuthorization(
-            CONFIG.freeboxApiUrl,
-            CONFIG.appId,
-            CONFIG.appName,
-            CONFIG.appVersion,
+            config.freeboxApiUrl,
+            config.appId,
+            config.appName,
+            config.appVersion,
             'Monitoring VM'
         );
 
@@ -140,7 +130,7 @@ async function main() {
 
         await waitForAuthorization(trackId);
 
-        await saveToken(CONFIG.tokenFile, appToken, trackId, CONFIG.appId);
+        await saveToken(config.tokenFile, appToken, trackId, config.appId);
 
         console.log('\n┌─────────────────────────────────────────────────────────┐');
         console.log('│                                                         │');

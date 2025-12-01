@@ -1,33 +1,36 @@
 #!/usr/bin/env node
-import 'dotenv/config';
+import { config } from './lib/config.js';
 import * as freeboxApi from './lib/freebox-api.js';
-
-const APP_ID = process.env.FREEBOX_APP_ID || 'fr.freebox.heartbeat';
-const API_URL = process.env.FREEBOX_API_URL || 'https://mafreebox.freebox.fr/api/v8';
-const TOKEN_FILE = process.env.TOKEN_FILE || 'token.json';
 
 async function testApi(): Promise<void> {
     console.log('=== Freebox API Test Script ===\n');
-    console.log(`API URL: ${API_URL}`);
-    console.log(`App ID: ${APP_ID}`);
-    console.log(`Token file: ${TOKEN_FILE}\n`);
+    console.log(`API URL: ${config.freeboxApiUrl}`);
+    console.log(`App ID: ${config.appId}`);
+    console.log(`Token file: ${config.tokenFile}\n`);
 
     let sessionToken: string | null = null;
 
     try {
         // Step 1: Read app token
         console.log('📖 Reading app token from token.json...');
-        const appToken = await freeboxApi.readAppToken(TOKEN_FILE);
+        const appToken = await freeboxApi.readAppToken(config.tokenFile);
         console.log('✓ App token loaded\n');
 
         // Step 2: Login to Freebox
         console.log('🔐 Logging in to Freebox...');
-        sessionToken = await freeboxApi.loginToFreebox(API_URL, APP_ID, appToken);
+        sessionToken = await freeboxApi.loginToFreebox(
+            config.freeboxApiUrl,
+            config.appId,
+            appToken
+        );
         console.log('✓ Session opened\n');
 
         // Step 3: Get connection info
         console.log('📡 Fetching connection info from Freebox API...\n');
-        const connectionInfo = await freeboxApi.getConnectionInfo(API_URL, sessionToken);
+        const connectionInfo = await freeboxApi.getConnectionInfo(
+            config.freeboxApiUrl,
+            sessionToken
+        );
 
         // Step 4: Display raw response
         console.log('=== RAW API RESPONSE ===');
@@ -52,7 +55,7 @@ async function testApi(): Promise<void> {
         if (sessionToken) {
             console.log('\n🔒 Logging out...');
             try {
-                await freeboxApi.logoutFromFreebox(API_URL, sessionToken);
+                await freeboxApi.logoutFromFreebox(config.freeboxApiUrl, sessionToken);
                 console.log('✓ Logged out successfully');
             } catch (error) {
                 console.error('⚠️ Logout error:', (error as Error).message);
