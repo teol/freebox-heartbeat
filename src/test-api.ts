@@ -1,0 +1,64 @@
+#!/usr/bin/env node
+import 'dotenv/config';
+import * as freeboxApi from './lib/freebox-api.js';
+
+const APP_ID = process.env.FREEBOX_APP_ID || 'fr.freebox.heartbeat';
+const API_URL = process.env.FREEBOX_API_URL || 'https://mafreebox.freebox.fr/api/v8';
+const TOKEN_FILE = process.env.TOKEN_FILE || 'token.json';
+
+async function testApi(): Promise<void> {
+    console.log('=== Freebox API Test Script ===\n');
+    console.log(`API URL: ${API_URL}`);
+    console.log(`App ID: ${APP_ID}`);
+    console.log(`Token file: ${TOKEN_FILE}\n`);
+
+    let sessionToken: string | null = null;
+
+    try {
+        // Step 1: Read app token
+        console.log('📖 Reading app token from token.json...');
+        const appToken = await freeboxApi.readAppToken(TOKEN_FILE);
+        console.log('✓ App token loaded\n');
+
+        // Step 2: Login to Freebox
+        console.log('🔐 Logging in to Freebox...');
+        sessionToken = await freeboxApi.loginToFreebox(API_URL, APP_ID, appToken);
+        console.log('✓ Session opened\n');
+
+        // Step 3: Get connection info
+        console.log('📡 Fetching connection info from Freebox API...\n');
+        const connectionInfo = await freeboxApi.getConnectionInfo(API_URL, sessionToken);
+
+        // Step 4: Display raw response
+        console.log('=== RAW API RESPONSE ===');
+        console.log(JSON.stringify(connectionInfo, null, 4));
+        console.log('========================\n');
+
+        // Step 5: Display formatted info
+        console.log('=== FORMATTED INFO ===');
+        console.log(`IPv4:           ${connectionInfo.ipv4 ?? 'N/A'}`);
+        console.log(`State:          ${connectionInfo.state ?? 'N/A'}`);
+        console.log(`Media:          ${connectionInfo.media ?? 'N/A'}`);
+        console.log(`Bandwidth Down: ${connectionInfo.bandwidth_down ?? 'N/A'} bytes/s`);
+        console.log(`Bandwidth Up:   ${connectionInfo.bandwidth_up ?? 'N/A'} bytes/s`);
+        console.log('======================\n');
+
+        console.log('✓ Test completed successfully');
+    } catch (error) {
+        console.error('❌ Error:', (error as Error).message);
+        process.exit(1);
+    } finally {
+        // Cleanup: logout
+        if (sessionToken) {
+            console.log('\n🔒 Logging out...');
+            try {
+                await freeboxApi.logoutFromFreebox(API_URL, sessionToken);
+                console.log('✓ Logged out successfully');
+            } catch (error) {
+                console.error('⚠️ Logout error:', (error as Error).message);
+            }
+        }
+    }
+}
+
+testApi();
