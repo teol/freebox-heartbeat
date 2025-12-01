@@ -107,6 +107,49 @@ sudo systemctl status freebox-heartbeat
 sudo journalctl -u freebox-heartbeat -f
 ```
 
+### Running with PM2
+
+PM2 is a production-ready process manager that provides advanced features like automatic restarts, log management, and monitoring.
+
+1. Install PM2 globally:
+```bash
+npm install -g pm2
+# or
+yarn global add pm2
+```
+
+2. Build the project:
+```bash
+yarn build
+```
+
+3. Start the application with PM2:
+```bash
+pm2 start ecosystem.config.cjs
+```
+
+4. Useful PM2 commands:
+```bash
+pm2 status                 # View application status
+pm2 logs freebox-heartbeat # View logs in real-time
+pm2 restart freebox-heartbeat # Restart the application
+pm2 stop freebox-heartbeat    # Stop the application
+pm2 delete freebox-heartbeat  # Remove from PM2
+```
+
+5. Make PM2 start on system boot:
+```bash
+pm2 startup
+pm2 save
+```
+
+The PM2 configuration (`ecosystem.config.cjs`) includes:
+- Automatic restart on failure
+- Memory limit (200MB)
+- Source map support
+- Log management in `./logs/` directory
+- Graceful restart with 4 second delay
+
 ## Data Structure
 
 The script sends the following data to the remote server:
