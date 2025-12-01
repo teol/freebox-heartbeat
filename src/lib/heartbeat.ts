@@ -18,7 +18,11 @@ export async function sendHeartbeat(
             }
         });
 
-        log(`Heartbeat sent successfully: ${data.connection_state} (${data.media_state})`);
+        const rateDownMbps = (data.rate_down / 1000000).toFixed(2);
+        const rateUpMbps = (data.rate_up / 1000000).toFixed(2);
+        log(
+            `Heartbeat sent: ${data.connection_state} (${data.media_state}/${data.connection_type}) ↓${rateDownMbps}Mbps ↑${rateUpMbps}Mbps`
+        );
         return response.data;
     } catch (error) {
         const errorMsg =
