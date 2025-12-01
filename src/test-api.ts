@@ -39,11 +39,34 @@ async function testApi(): Promise<void> {
 
         // Step 5: Display formatted info
         console.log('=== FORMATTED INFO ===');
-        console.log(`IPv4:           ${connectionInfo.ipv4 ?? 'N/A'}`);
-        console.log(`State:          ${connectionInfo.state ?? 'N/A'}`);
-        console.log(`Media:          ${connectionInfo.media ?? 'N/A'}`);
-        console.log(`Bandwidth Down: ${connectionInfo.bandwidth_down ?? 'N/A'} bytes/s`);
-        console.log(`Bandwidth Up:   ${connectionInfo.bandwidth_up ?? 'N/A'} bytes/s`);
+        console.log(`IPv4:              ${connectionInfo.ipv4 ?? 'N/A'}`);
+        console.log(`IPv6:              ${connectionInfo.ipv6 ?? 'N/A'}`);
+        console.log(`State:             ${connectionInfo.state ?? 'N/A'}`);
+        console.log(`Media:             ${connectionInfo.media ?? 'N/A'}`);
+        console.log(`Type:              ${connectionInfo.type ?? 'N/A'}`);
+        console.log(
+            `Bandwidth Down:    ${connectionInfo.bandwidth_down ?? 'N/A'} bytes/s (${connectionInfo.bandwidth_down ? (connectionInfo.bandwidth_down / 1000000000).toFixed(2) + ' Gbps' : 'N/A'})`
+        );
+        console.log(
+            `Bandwidth Up:      ${connectionInfo.bandwidth_up ?? 'N/A'} bytes/s (${connectionInfo.bandwidth_up ? (connectionInfo.bandwidth_up / 1000000).toFixed(2) + ' Mbps' : 'N/A'})`
+        );
+        console.log(
+            `Current Rate Down: ${connectionInfo.rate_down ?? 'N/A'} bytes/s (${connectionInfo.rate_down ? (connectionInfo.rate_down / 1000).toFixed(2) + ' Kbps' : 'N/A'})`
+        );
+        console.log(
+            `Current Rate Up:   ${connectionInfo.rate_up ?? 'N/A'} bytes/s (${connectionInfo.rate_up ? (connectionInfo.rate_up / 1000).toFixed(2) + ' Kbps' : 'N/A'})`
+        );
+        console.log(
+            `Total Bytes Down:  ${connectionInfo.bytes_down ?? 'N/A'} bytes (${connectionInfo.bytes_down ? (connectionInfo.bytes_down / 1000000000).toFixed(2) + ' GB' : 'N/A'})`
+        );
+        console.log(
+            `Total Bytes Up:    ${connectionInfo.bytes_up ?? 'N/A'} bytes (${connectionInfo.bytes_up ? (connectionInfo.bytes_up / 1000000).toFixed(2) + ' MB' : 'N/A'})`
+        );
+        if (connectionInfo.ipv4_port_range) {
+            console.log(
+                `IPv4 Port Range:   ${connectionInfo.ipv4_port_range[0]} - ${connectionInfo.ipv4_port_range[1]}`
+            );
+        }
         console.log('======================\n');
 
         console.log('✓ Test completed successfully');

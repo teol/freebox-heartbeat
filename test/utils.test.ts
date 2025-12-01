@@ -102,10 +102,16 @@ describe('utils', () => {
         it('should build payload with complete connection info', () => {
             const connectionInfo = {
                 ipv4: '1.2.3.4',
+                ipv6: '2a01:e0a:de7:a4a0::1',
                 state: 'up',
                 media: 'ftth',
+                type: 'ethernet',
                 bandwidth_down: 1000000000,
-                bandwidth_up: 600000000
+                bandwidth_up: 600000000,
+                rate_down: 10176,
+                rate_up: 7954,
+                bytes_down: 43818124933,
+                bytes_up: 1353818610
             };
             const secret = 'my-secret';
 
@@ -114,10 +120,16 @@ describe('utils', () => {
             expect(payload).toMatchObject({
                 token: 'my-secret',
                 ipv4: '1.2.3.4',
+                ipv6: '2a01:e0a:de7:a4a0::1',
                 connection_state: 'up',
                 media_state: 'ftth',
+                connection_type: 'ethernet',
                 bandwidth_down: 1000000000,
-                bandwidth_up: 600000000
+                bandwidth_up: 600000000,
+                rate_down: 10176,
+                rate_up: 7954,
+                bytes_down: 43818124933,
+                bytes_up: 1353818610
             });
             expect(payload.timestamp).toMatch(/\d{4}-\d{2}-\d{2}T/);
         });
@@ -131,10 +143,16 @@ describe('utils', () => {
             expect(payload).toMatchObject({
                 token: 'my-secret',
                 ipv4: null,
+                ipv6: null,
                 connection_state: 'unknown',
                 media_state: 'unknown',
+                connection_type: 'unknown',
                 bandwidth_down: 0,
-                bandwidth_up: 0
+                bandwidth_up: 0,
+                rate_down: 0,
+                rate_up: 0,
+                bytes_down: 0,
+                bytes_up: 0
             });
         });
 
@@ -147,13 +165,16 @@ describe('utils', () => {
         it('should handle partial connection info', () => {
             const connectionInfo = {
                 state: 'down',
-                media: 'backup'
+                media: 'backup',
+                type: '4g'
             };
             const payload = buildHeartbeatPayload(connectionInfo, 'test-secret');
 
             expect(payload.connection_state).toBe('down');
             expect(payload.media_state).toBe('backup');
+            expect(payload.connection_type).toBe('4g');
             expect(payload.ipv4).toBeNull();
+            expect(payload.ipv6).toBeNull();
         });
     });
 
