@@ -47,10 +47,16 @@ export function buildHeartbeatPayload(
     return {
         token: secret,
         ipv4: connectionInfo.ipv4 ?? null,
+        ipv6: connectionInfo.ipv6 ?? null,
         connection_state: connectionInfo.state ?? 'unknown',
         media_state: connectionInfo.media ?? 'unknown',
+        connection_type: connectionInfo.type ?? 'unknown',
         bandwidth_down: connectionInfo.bandwidth_down ?? 0,
         bandwidth_up: connectionInfo.bandwidth_up ?? 0,
+        rate_down: connectionInfo.rate_down ?? 0,
+        rate_up: connectionInfo.rate_up ?? 0,
+        bytes_down: connectionInfo.bytes_down ?? 0,
+        bytes_up: connectionInfo.bytes_up ?? 0,
         timestamp: new Date().toISOString()
     };
 }

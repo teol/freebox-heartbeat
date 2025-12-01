@@ -1,6 +1,6 @@
-import dotenv from 'dotenv';
 import fs from 'fs/promises';
 import readline from 'readline';
+import { config } from './lib/config.js';
 import {
     requestAuthorization,
     trackAuthorizationStatus,
@@ -9,16 +9,6 @@ import {
 } from './lib/freebox-api.js';
 import { log, sleep } from './lib/utils.js';
 import type { FreeboxAuthorizationStatus } from './lib/types.js';
-
-dotenv.config();
-
-const CONFIG = {
-    appId: process.env.APP_ID ?? 'fr.mon.monitoring',
-    appName: process.env.APP_NAME ?? 'Freebox Monitor',
-    appVersion: process.env.APP_VERSION ?? '1.0.0',
-    freeboxApiUrl: process.env.FREEBOX_API_URL ?? 'http://mafreebox.freebox.fr/api/v4',
-    tokenFile: process.env.TOKEN_FILE ?? 'token.json'
-};
 
 function askQuestion(query: string): Promise<string> {
     const rl = readline.createInterface({
@@ -36,24 +26,27 @@ function askQuestion(query: string): Promise<string> {
 
 async function checkExistingToken(): Promise<boolean> {
     try {
-        await fs.access(CONFIG.tokenFile);
+        await fs.access(config.tokenFile);
         return true;
     } catch {
         return false;
     }
 }
 
-async function waitForAuthorization(trackId: number | string): Promise<string> {
+async function waitForAuthorization(trackId: number | string): Promise<void> {
     const maxAttempts = 30;
     let attempts = 0;
 
     process.stdout.write('Progress: ');
 
     while (attempts < maxAttempts) {
-        const result = await trackAuthorizationStatus(CONFIG.freeboxApiUrl, trackId);
+        const result = await trackAuthorizationStatus(config.freeboxApiUrl, trackId);
         const status = result.status as FreeboxAuthorizationStatus;
 
         if (!status) {
+            console.log('\n\n=== RAW API RESPONSE (missing status) ===');
+            console.log(JSON.stringify(result, null, 2));
+            console.log('=========================================\n');
             throw new Error('Authorization status missing from response');
         }
 
@@ -64,13 +57,16 @@ async function waitForAuthorization(trackId: number | string): Promise<string> {
         } else if (isAuthorizationGranted(status)) {
             process.stdout.write('\n');
             log('Authorization granted!');
-            if (!result.app_token) {
-                throw new Error('Authorization was granted, but no token was provided.');
-            }
-            return result.app_token;
+            console.log('\n=== RAW API RESPONSE (granted) ===');
+            console.log(JSON.stringify(result, null, 2));
+            console.log('===================================\n');
+            return;
         } else if (status === 'denied') {
             throw new Error('Authorization denied on Freebox');
         } else {
+            console.log('\n\n=== RAW API RESPONSE (unknown status) ===');
+            console.log(JSON.stringify(result, null, 2));
+            console.log('=========================================\n');
             throw new Error(`Unknown status: ${status}`);
         }
 
@@ -86,7 +82,7 @@ async function main() {
 
     const tokenExists = await checkExistingToken();
     if (tokenExists) {
-        log(`Token file ${CONFIG.tokenFile} already exists`, 'WARN');
+        log(`Token file ${config.tokenFile} already exists`, 'WARN');
         const answer = await askQuestion('Do you want to create a new token? (yes/no): ');
 
         if (answer.toLowerCase() !== 'yes' && answer.toLowerCase() !== 'y') {
@@ -98,16 +94,25 @@ async function main() {
 
     try {
         const authResult = await requestAuthorization(
-            CONFIG.freeboxApiUrl,
-            CONFIG.appId,
-            CONFIG.appName,
-            CONFIG.appVersion,
+            config.freeboxApiUrl,
+            config.appId,
+            config.appName,
+            config.appVersion,
             'Monitoring VM'
         );
-        const { track_id: trackId } = authResult;
+
+        console.log('\n=== RAW API RESPONSE (initial request) ===');
+        console.log(JSON.stringify(authResult, null, 2));
+        console.log('==========================================\n');
+
+        const { track_id: trackId, app_token: appToken } = authResult;
 
         if (!trackId) {
             throw new Error('Authorization request did not return a valid track_id.');
+        }
+
+        if (!appToken) {
+            throw new Error('Authorization request did not return a valid app_token.');
         }
 
         console.log('\n┌─────────────────────────────────────────────────────────┐');
@@ -123,9 +128,9 @@ async function main() {
 
         log('Waiting for validation');
 
-        const finalToken = await waitForAuthorization(trackId);
+        await waitForAuthorization(trackId);
 
-        await saveToken(CONFIG.tokenFile, finalToken, trackId, CONFIG.appId);
+        await saveToken(config.tokenFile, appToken, trackId, config.appId);
 
         console.log('\n┌─────────────────────────────────────────────────────────┐');
         console.log('│                                                         │');
