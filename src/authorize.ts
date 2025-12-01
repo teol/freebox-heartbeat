@@ -43,7 +43,7 @@ async function checkExistingToken(): Promise<boolean> {
     }
 }
 
-async function waitForAuthorization(trackId: number | string): Promise<string> {
+async function waitForAuthorization(trackId: number | string): Promise<void> {
     const maxAttempts = 30;
     let attempts = 0;
 
@@ -70,10 +70,7 @@ async function waitForAuthorization(trackId: number | string): Promise<string> {
             console.log('\n=== RAW API RESPONSE (granted) ===');
             console.log(JSON.stringify(result, null, 2));
             console.log('===================================\n');
-            if (!result.app_token) {
-                throw new Error('Authorization was granted, but no token was provided.');
-            }
-            return result.app_token;
+            return;
         } else if (status === 'denied') {
             throw new Error('Authorization denied on Freebox');
         } else {
@@ -118,10 +115,14 @@ async function main() {
         console.log(JSON.stringify(authResult, null, 2));
         console.log('==========================================\n');
 
-        const { track_id: trackId } = authResult;
+        const { track_id: trackId, app_token: appToken } = authResult;
 
         if (!trackId) {
             throw new Error('Authorization request did not return a valid track_id.');
+        }
+
+        if (!appToken) {
+            throw new Error('Authorization request did not return a valid app_token.');
         }
 
         console.log('\n┌─────────────────────────────────────────────────────────┐');
@@ -137,9 +138,9 @@ async function main() {
 
         log('Waiting for validation');
 
-        const finalToken = await waitForAuthorization(trackId);
+        await waitForAuthorization(trackId);
 
-        await saveToken(CONFIG.tokenFile, finalToken, trackId, CONFIG.appId);
+        await saveToken(CONFIG.tokenFile, appToken, trackId, CONFIG.appId);
 
         console.log('\n┌─────────────────────────────────────────────────────────┐');
         console.log('│                                                         │');
