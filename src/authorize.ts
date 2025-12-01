@@ -54,6 +54,9 @@ async function waitForAuthorization(trackId: number | string): Promise<string> {
         const status = result.status as FreeboxAuthorizationStatus;
 
         if (!status) {
+            console.log('\n\n=== RAW API RESPONSE (missing status) ===');
+            console.log(JSON.stringify(result, null, 2));
+            console.log('=========================================\n');
             throw new Error('Authorization status missing from response');
         }
 
@@ -64,6 +67,9 @@ async function waitForAuthorization(trackId: number | string): Promise<string> {
         } else if (isAuthorizationGranted(status)) {
             process.stdout.write('\n');
             log('Authorization granted!');
+            console.log('\n=== RAW API RESPONSE (granted) ===');
+            console.log(JSON.stringify(result, null, 2));
+            console.log('===================================\n');
             if (!result.app_token) {
                 throw new Error('Authorization was granted, but no token was provided.');
             }
@@ -71,6 +77,9 @@ async function waitForAuthorization(trackId: number | string): Promise<string> {
         } else if (status === 'denied') {
             throw new Error('Authorization denied on Freebox');
         } else {
+            console.log('\n\n=== RAW API RESPONSE (unknown status) ===');
+            console.log(JSON.stringify(result, null, 2));
+            console.log('=========================================\n');
             throw new Error(`Unknown status: ${status}`);
         }
 
@@ -104,6 +113,11 @@ async function main() {
             CONFIG.appVersion,
             'Monitoring VM'
         );
+
+        console.log('\n=== RAW API RESPONSE (initial request) ===');
+        console.log(JSON.stringify(authResult, null, 2));
+        console.log('==========================================\n');
+
         const { track_id: trackId } = authResult;
 
         if (!trackId) {
