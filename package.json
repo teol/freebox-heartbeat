@@ -7,6 +7,8 @@
   "scripts": {
     "start": "node --enable-source-maps dist/monitor.js",
     "authorize": "node --enable-source-maps dist/authorize.js",
+    "test:api": "node --enable-source-maps dist/test-api.js",
+    "test:api:dev": "tsx src/test-api.ts",
     "build": "tsc --project tsconfig.json",
     "watch": "tsc --watch --preserveWatchOutput --project tsconfig.json",
     "dev": "tsx watch src/monitor.ts",
@@ -15,7 +17,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "prestart": "yarn build",
-    "preauthorize": "yarn build"
+    "preauthorize": "yarn build",
+    "pretest:api": "yarn build"
   },
   "keywords": [
     "freebox",

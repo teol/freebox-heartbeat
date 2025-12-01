@@ -14,10 +14,9 @@ import {
 } from '../src/lib/freebox-api.js';
 
 vi.mock('../src/lib/http-client.js', async () => {
-    const actual =
-        await vi.importActual<typeof import('../src/lib/http-client.js')>(
-            '../src/lib/http-client.js'
-        );
+    const actual = await vi.importActual<typeof import('../src/lib/http-client.js')>(
+        '../src/lib/http-client.js'
+    );
     return {
         ...actual,
         get: vi.fn(),

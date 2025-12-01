@@ -19,9 +19,7 @@ function handleHttpError(error: unknown, defaultMessage: string): never {
     if (error instanceof HttpClientError && error.response) {
         const errorData = error.response.data as { msg?: string } | undefined;
         throw new Error(
-            `Freebox API error: ${error.response.status} - ${
-                errorData?.msg || error.message
-            }`
+            `Freebox API error: ${error.response.status} - ${errorData?.msg || error.message}`
         );
     }
 
