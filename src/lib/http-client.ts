@@ -37,10 +37,7 @@ export class HttpClientError extends Error {
     }
 }
 
-function buildRequestOptions(
-    url: URL,
-    options: HttpClientOptions
-): http.RequestOptions {
+function buildRequestOptions(url: URL, options: HttpClientOptions): http.RequestOptions {
     const isHttps = url.protocol === 'https:';
     const defaultPort = isHttps ? 443 : 80;
 
@@ -115,7 +112,8 @@ function request<T>(url: string, options: HttpClientOptions = {}): Promise<HttpC
                     contentType = contentTypeHeader;
                 }
 
-                const isJson = contentType.includes('application/json') || contentType.includes('+json');
+                const isJson =
+                    contentType.includes('application/json') || contentType.includes('+json');
 
                 let parsedData: unknown;
                 if (!rawData) {
@@ -184,11 +182,18 @@ function request<T>(url: string, options: HttpClientOptions = {}): Promise<HttpC
     });
 }
 
-export function get<T>(url: string, options: Omit<HttpClientOptions, 'method' | 'body'> = {}): Promise<HttpClientResponse<T>> {
+export function get<T>(
+    url: string,
+    options: Omit<HttpClientOptions, 'method' | 'body'> = {}
+): Promise<HttpClientResponse<T>> {
     return request<T>(url, { ...options, method: 'GET' });
 }
 
-export function post<T>(url: string, data?: object | string, options: Omit<HttpClientOptions, 'method' | 'body'> = {}): Promise<HttpClientResponse<T>> {
+export function post<T>(
+    url: string,
+    data?: object | string,
+    options: Omit<HttpClientOptions, 'method' | 'body'> = {}
+): Promise<HttpClientResponse<T>> {
     return request<T>(url, {
         ...options,
         method: 'POST',
@@ -196,15 +201,26 @@ export function post<T>(url: string, data?: object | string, options: Omit<HttpC
     });
 }
 
-export function put<T>(url: string, data?: object | string, options: Omit<HttpClientOptions, 'method' | 'body'> = {}): Promise<HttpClientResponse<T>> {
+export function put<T>(
+    url: string,
+    data?: object | string,
+    options: Omit<HttpClientOptions, 'method' | 'body'> = {}
+): Promise<HttpClientResponse<T>> {
     return request<T>(url, { ...options, method: 'PUT', body: data });
 }
 
-export function patch<T>(url: string, data?: object | string, options: Omit<HttpClientOptions, 'method' | 'body'> = {}): Promise<HttpClientResponse<T>> {
+export function patch<T>(
+    url: string,
+    data?: object | string,
+    options: Omit<HttpClientOptions, 'method' | 'body'> = {}
+): Promise<HttpClientResponse<T>> {
     return request<T>(url, { ...options, method: 'PATCH', body: data });
 }
 
-export function del<T>(url: string, options: Omit<HttpClientOptions, 'method' | 'body'> = {}): Promise<HttpClientResponse<T>> {
+export function del<T>(
+    url: string,
+    options: Omit<HttpClientOptions, 'method' | 'body'> = {}
+): Promise<HttpClientResponse<T>> {
     return request<T>(url, { ...options, method: 'DELETE' });
 }
 
