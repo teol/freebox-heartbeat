@@ -56,9 +56,9 @@ export function createMonitor(config: MonitorConfig) {
         try {
             await authenticate();
             const connectionInfo = await fetchConnectionInfoWithRefresh();
-            const payload = buildHeartbeatPayload(connectionInfo, config.secret);
+            const payload = buildHeartbeatPayload(connectionInfo);
 
-            await sendHeartbeat(config.vpsUrl, payload, config.maxRetries, config.retryDelay);
+            await sendHeartbeat(config.vpsUrl, config.secret, payload, config.maxRetries, config.retryDelay);
         } catch (error) {
             log(`Monitor iteration failed: ${(error as Error).message}`, 'ERROR');
 
