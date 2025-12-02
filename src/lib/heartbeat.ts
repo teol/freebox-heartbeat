@@ -19,7 +19,8 @@ export async function sendHeartbeat(
         // Generate HMAC authentication headers
         const timestamp = Math.floor(Date.now() / 1000).toString();
         const nonce = randomBytes(16).toString('hex');
-        const canonicalMessage = `POST:/heartbeat:${timestamp}:${nonce}`;
+        const bodyString = JSON.stringify(data);
+        const canonicalMessage = `method=POST;path=/heartbeat;ts=${timestamp};nonce=${nonce};body=${bodyString}`;
         const signature = createHmac('sha256', secret)
             .update(canonicalMessage)
             .digest('base64url');
