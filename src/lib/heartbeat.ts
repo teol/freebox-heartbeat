@@ -1,4 +1,4 @@
-import { createHmac, randomBytes } from 'crypto';
+import { createHmac, createHash, randomBytes } from 'crypto';
 import * as httpClient from './http-client.js';
 import { HttpClientError } from './http-client.js';
 import type { HeartbeatPayload } from './types.js';
@@ -20,7 +20,10 @@ export async function sendHeartbeat(
         const timestamp = Math.floor(Date.now() / 1000).toString();
         const nonce = randomBytes(16).toString('hex');
         const bodyString = JSON.stringify(data);
-        const canonicalMessage = `method=POST;path=/heartbeat;ts=${timestamp};nonce=${nonce};body=${bodyString}`;
+        const bodyHash = createHash('sha256')
+            .update(bodyString)
+            .digest('base64url');
+        const canonicalMessage = `method=POST;path=/heartbeat;ts=${timestamp};nonce=${nonce};body_sha256=${bodyHash}`;
         const signature = createHmac('sha256', secret)
             .update(canonicalMessage)
             .digest('base64url');
