@@ -1,3 +1,4 @@
+import { createHmac, createHash, randomBytes } from 'crypto';
 import * as httpClient from './http-client.js';
 import { HttpClientError } from './http-client.js';
 import type { HeartbeatPayload } from './types.js';
@@ -5,15 +6,34 @@ import { sleep, log } from './utils.js';
 
 export async function sendHeartbeat(
     vpsUrl: string,
+    secret: string,
     data: HeartbeatPayload,
     maxRetries = 3,
     retryDelay = 5000,
     retries = 0
 ): Promise<unknown> {
     try {
-        const response = await httpClient.post(vpsUrl, data, {
+        // Ensure the URL ends with /heartbeat
+        const url = vpsUrl.endsWith('/heartbeat') ? vpsUrl : `${vpsUrl.replace(/\/$/, '')}/heartbeat`;
+
+        // Generate HMAC authentication headers
+        const timestamp = Math.floor(Date.now() / 1000).toString();
+        const nonce = randomBytes(16).toString('hex');
+        const bodyString = JSON.stringify(data);
+        const bodyHash = createHash('sha256')
+            .update(bodyString)
+            .digest('base64url');
+        const canonicalMessage = `method=POST;path=/heartbeat;ts=${timestamp};nonce=${nonce};body_sha256=${bodyHash}`;
+        const signature = createHmac('sha256', secret)
+            .update(canonicalMessage)
+            .digest('base64url');
+
+        const response = await httpClient.post(url, data, {
             timeout: 15000,
             headers: {
+                'Authorization': `Bearer ${signature}`,
+                'Signature-Timestamp': timestamp,
+                'Signature-Nonce': nonce,
                 'Content-Type': 'application/json'
             }
         });
@@ -38,7 +58,7 @@ export async function sendHeartbeat(
                 'WARN'
             );
             await sleep(retryDelay);
-            return sendHeartbeat(vpsUrl, data, maxRetries, retryDelay, retries + 1);
+            return sendHeartbeat(vpsUrl, secret, data, maxRetries, retryDelay, retries + 1);
         }
 
         throw new Error(`Failed to send heartbeat after ${maxRetries} retries: ${errorMsg}`);

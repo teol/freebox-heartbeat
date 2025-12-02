@@ -113,12 +113,10 @@ describe('utils', () => {
                 bytes_down: 43818124933,
                 bytes_up: 1353818610
             };
-            const secret = 'my-secret';
 
-            const payload = buildHeartbeatPayload(connectionInfo, secret);
+            const payload = buildHeartbeatPayload(connectionInfo);
 
             expect(payload).toMatchObject({
-                token: 'my-secret',
                 ipv4: '1.2.3.4',
                 ipv6: '2a01:e0a:de7:a4a0::1',
                 connection_state: 'up',
@@ -136,12 +134,10 @@ describe('utils', () => {
 
         it('should use defaults for missing fields', () => {
             const connectionInfo = {};
-            const secret = 'my-secret';
 
-            const payload = buildHeartbeatPayload(connectionInfo, secret);
+            const payload = buildHeartbeatPayload(connectionInfo);
 
             expect(payload).toMatchObject({
-                token: 'my-secret',
                 ipv4: null,
                 ipv6: null,
                 connection_state: 'unknown',
@@ -157,7 +153,7 @@ describe('utils', () => {
         });
 
         it('should throw error if connectionInfo is null', () => {
-            expect(() => buildHeartbeatPayload(null, 'secret')).toThrow(
+            expect(() => buildHeartbeatPayload(null)).toThrow(
                 'Connection info is required'
             );
         });
@@ -168,7 +164,7 @@ describe('utils', () => {
                 media: 'backup',
                 type: '4g'
             };
-            const payload = buildHeartbeatPayload(connectionInfo, 'test-secret');
+            const payload = buildHeartbeatPayload(connectionInfo);
 
             expect(payload.connection_state).toBe('down');
             expect(payload.media_state).toBe('backup');

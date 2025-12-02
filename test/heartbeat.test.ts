@@ -36,14 +36,20 @@ describe('heartbeat', () => {
     });
 
     describe('sendHeartbeat', () => {
-        const vpsUrl = 'https://example.com/heartbeat';
+        const vpsUrl = 'https://example.com';
+        const secret = 'test-secret';
         const mockData = {
-            token: 'secret',
             ipv4: '1.2.3.4',
+            ipv6: null,
             connection_state: 'up',
             media_state: 'ftth',
+            connection_type: 'ethernet',
             bandwidth_down: 1000000000,
             bandwidth_up: 600000000,
+            rate_down: 10176,
+            rate_up: 7954,
+            bytes_down: 43818124933,
+            bytes_up: 1353818610,
             timestamp: '2025-11-26T10:00:00.000Z'
         };
 
@@ -51,16 +57,18 @@ describe('heartbeat', () => {
             const mockResponse = { data: { success: true } };
             post.mockResolvedValue(mockResponse);
 
-            const result = await sendHeartbeat(vpsUrl, mockData);
+            const result = await sendHeartbeat(vpsUrl, secret, mockData);
 
             expect(result).toEqual({ success: true });
             expect(post).toHaveBeenCalledOnce();
-            expect(post).toHaveBeenCalledWith(vpsUrl, mockData, {
-                timeout: 15000,
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            });
+            const callArgs = post.mock.calls[0];
+            expect(callArgs[0]).toBe('https://example.com/heartbeat');
+            expect(callArgs[1]).toEqual(mockData);
+            expect(callArgs[2].timeout).toBe(15000);
+            expect(callArgs[2].headers['Content-Type']).toBe('application/json');
+            expect(callArgs[2].headers['Authorization']).toMatch(/^Bearer /);
+            expect(callArgs[2].headers['Signature-Timestamp']).toBeDefined();
+            expect(callArgs[2].headers['Signature-Nonce']).toBeDefined();
         });
 
         it('should retry on network failure', async () => {
@@ -68,7 +76,7 @@ describe('heartbeat', () => {
                 data: { success: true }
             });
 
-            const result = await sendHeartbeat(vpsUrl, mockData, 3, 100);
+            const result = await sendHeartbeat(vpsUrl, secret, mockData, 3, 100);
 
             expect(result).toEqual({ success: true });
             expect(post).toHaveBeenCalledTimes(2);
@@ -78,7 +86,7 @@ describe('heartbeat', () => {
         it('should retry up to max retries', async () => {
             post.mockRejectedValue(new Error('Network error'));
 
-            await expect(sendHeartbeat(vpsUrl, mockData, 3, 50)).rejects.toThrow(
+            await expect(sendHeartbeat(vpsUrl, secret, mockData, 3, 50)).rejects.toThrow(
                 'Failed to send heartbeat after 3 retries'
             );
 
@@ -90,7 +98,7 @@ describe('heartbeat', () => {
             const error = new HttpClientError('Request failed', 500, 'Internal Server Error');
             post.mockRejectedValue(error);
 
-            await expect(sendHeartbeat(vpsUrl, mockData, 2, 50)).rejects.toThrow(
+            await expect(sendHeartbeat(vpsUrl, secret, mockData, 2, 50)).rejects.toThrow(
                 'Failed to send heartbeat after 2 retries: 500 - Internal Server Error'
             );
         });
@@ -99,7 +107,7 @@ describe('heartbeat', () => {
             const error = new HttpClientError('Not found', 404, 'Not Found');
             post.mockRejectedValue(error);
 
-            await expect(sendHeartbeat(vpsUrl, mockData, 1, 50)).rejects.toThrow('404 - Not Found');
+            await expect(sendHeartbeat(vpsUrl, secret, mockData, 1, 50)).rejects.toThrow('404 - Not Found');
         });
 
         it('should retry with exponential backoff when called multiple times', async () => {
@@ -107,7 +115,7 @@ describe('heartbeat', () => {
                 .mockRejectedValueOnce(new Error('Error 2'))
                 .mockResolvedValueOnce({ data: { success: true } });
 
-            await sendHeartbeat(vpsUrl, mockData, 5, 100);
+            await sendHeartbeat(vpsUrl, secret, mockData, 5, 100);
 
             expect(sleep).toHaveBeenCalledTimes(2);
             expect(sleep).toHaveBeenNthCalledWith(1, 100);
@@ -117,7 +125,7 @@ describe('heartbeat', () => {
         it('should include correct timeout', async () => {
             post.mockResolvedValue({ data: { success: true } });
 
-            await sendHeartbeat(vpsUrl, mockData);
+            await sendHeartbeat(vpsUrl, secret, mockData);
 
             const callArgs = post.mock.calls[0];
             expect(callArgs[2].timeout).toBe(15000);
@@ -126,7 +134,7 @@ describe('heartbeat', () => {
         it('should send with correct content type', async () => {
             post.mockResolvedValue({ data: { success: true } });
 
-            await sendHeartbeat(vpsUrl, mockData);
+            await sendHeartbeat(vpsUrl, secret, mockData);
 
             const callArgs = post.mock.calls[0];
             expect(callArgs[2].headers['Content-Type']).toBe('application/json');
@@ -136,7 +144,7 @@ describe('heartbeat', () => {
             const error = new Error('Request timeout after 15000ms');
             post.mockRejectedValue(error);
 
-            await expect(sendHeartbeat(vpsUrl, mockData, 1, 50)).rejects.toThrow(
+            await expect(sendHeartbeat(vpsUrl, secret, mockData, 1, 50)).rejects.toThrow(
                 'Request timeout after 15000ms'
             );
         });
@@ -144,11 +152,40 @@ describe('heartbeat', () => {
         it('should not retry if maxRetries is 0', async () => {
             post.mockRejectedValue(new Error('Network error'));
 
-            await expect(sendHeartbeat(vpsUrl, mockData, 0, 50)).rejects.toThrow(
+            await expect(sendHeartbeat(vpsUrl, secret, mockData, 0, 50)).rejects.toThrow(
                 'Failed to send heartbeat after 0 retries'
             );
 
             expect(post).toHaveBeenCalledOnce();
+        });
+
+        it('should ensure URL ends with /heartbeat', async () => {
+            post.mockResolvedValue({ data: { success: true } });
+
+            await sendHeartbeat('https://example.com/api', secret, mockData);
+
+            const callArgs = post.mock.calls[0];
+            expect(callArgs[0]).toBe('https://example.com/api/heartbeat');
+        });
+
+        it('should not duplicate /heartbeat in URL', async () => {
+            post.mockResolvedValue({ data: { success: true } });
+
+            await sendHeartbeat('https://example.com/heartbeat', secret, mockData);
+
+            const callArgs = post.mock.calls[0];
+            expect(callArgs[0]).toBe('https://example.com/heartbeat');
+        });
+
+        it('should generate unique nonce for each request', async () => {
+            post.mockResolvedValue({ data: { success: true } });
+
+            await sendHeartbeat(vpsUrl, secret, mockData);
+            await sendHeartbeat(vpsUrl, secret, mockData);
+
+            const firstNonce = post.mock.calls[0][2].headers['Signature-Nonce'];
+            const secondNonce = post.mock.calls[1][2].headers['Signature-Nonce'];
+            expect(firstNonce).not.toBe(secondNonce);
         });
     });
 });
