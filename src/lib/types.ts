@@ -26,7 +26,6 @@ export interface ConnectionInfo {
 }
 
 export interface HeartbeatPayload {
-    token: string;
     ipv4: string | null;
     ipv6: string | null;
     connection_state: string;

@@ -36,16 +36,12 @@ export function validateConfig(
     return true;
 }
 
-export function buildHeartbeatPayload(
-    connectionInfo: ConnectionInfo | null,
-    secret: string
-): HeartbeatPayload {
+export function buildHeartbeatPayload(connectionInfo: ConnectionInfo | null): HeartbeatPayload {
     if (!connectionInfo) {
         throw new Error('Connection info is required');
     }
 
     return {
-        token: secret,
         ipv4: connectionInfo.ipv4 ?? null,
         ipv6: connectionInfo.ipv6 ?? null,
         connection_state: connectionInfo.state ?? 'unknown',
