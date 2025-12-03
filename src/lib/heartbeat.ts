@@ -13,8 +13,13 @@ export async function sendHeartbeat(
     retries = 0
 ): Promise<unknown> {
     try {
-        // Ensure the URL ends with /heartbeat
-        const url = vpsUrl.endsWith('/heartbeat') ? vpsUrl : `${vpsUrl.replace(/\/$/, '')}/heartbeat`;
+        // Ensure the URL ends with /heartbeat using the URL API to preserve ports and query params
+        const urlObject = new URL(vpsUrl);
+        const normalizedPath = urlObject.pathname.endsWith('/heartbeat')
+            ? urlObject.pathname
+            : `${urlObject.pathname.replace(/\/$/, '')}/heartbeat`;
+        urlObject.pathname = normalizedPath || '/heartbeat';
+        const url = urlObject.toString();
 
         // Generate HMAC authentication headers
         const timestamp = Math.floor(Date.now() / 1000).toString();
@@ -23,7 +28,7 @@ export async function sendHeartbeat(
         const bodyHash = createHash('sha256')
             .update(bodyString)
             .digest('base64url');
-        const canonicalMessage = `method=POST;path=/heartbeat;ts=${timestamp};nonce=${nonce};body_sha256=${bodyHash}`;
+        const canonicalMessage = `method=POST;path=${urlObject.pathname};ts=${timestamp};nonce=${nonce};body_sha256=${bodyHash}`;
         const signature = createHmac('sha256', secret)
             .update(canonicalMessage)
             .digest('base64url');
