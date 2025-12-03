@@ -159,40 +159,39 @@ describe('heartbeat', () => {
             expect(post).toHaveBeenCalledOnce();
         });
 
-        it('should ensure URL ends with /heartbeat', async () => {
+        it.each([
+            {
+                description: 'should ensure URL ends with /heartbeat',
+                url: 'https://example.com/api',
+                expected: 'https://example.com/api/heartbeat'
+            },
+            {
+                description: 'should not duplicate /heartbeat in URL',
+                url: 'https://example.com/heartbeat',
+                expected: 'https://example.com/heartbeat'
+            },
+            {
+                description: 'should preserve custom port when appending /heartbeat',
+                url: 'https://heartbeat.teol.casa:1337/api',
+                expected: 'https://heartbeat.teol.casa:1337/api/heartbeat'
+            },
+            {
+                description: 'should keep port when VPS URL already ends with /heartbeat',
+                url: 'https://heartbeat.teol.casa:1337/api/heartbeat',
+                expected: 'https://heartbeat.teol.casa:1337/api/heartbeat'
+            },
+            {
+                description: 'should preserve query params when appending /heartbeat',
+                url: 'https://example.com/api?foo=bar',
+                expected: 'https://example.com/api/heartbeat?foo=bar'
+            }
+        ])('$description', async ({ url, expected }) => {
             post.mockResolvedValue({ data: { success: true } });
 
-            await sendHeartbeat('https://example.com/api', secret, mockData);
+            await sendHeartbeat(url, secret, mockData);
 
             const callArgs = post.mock.calls[0];
-            expect(callArgs[0]).toBe('https://example.com/api/heartbeat');
-        });
-
-        it('should not duplicate /heartbeat in URL', async () => {
-            post.mockResolvedValue({ data: { success: true } });
-
-            await sendHeartbeat('https://example.com/heartbeat', secret, mockData);
-
-            const callArgs = post.mock.calls[0];
-            expect(callArgs[0]).toBe('https://example.com/heartbeat');
-        });
-
-        it('should preserve custom port in VPS URL when appending /heartbeat', async () => {
-            post.mockResolvedValue({ data: { success: true } });
-
-            await sendHeartbeat('https://heartbeat.teol.casa:1337/api', secret, mockData);
-
-            const callArgs = post.mock.calls[0];
-            expect(callArgs[0]).toBe('https://heartbeat.teol.casa:1337/api/heartbeat');
-        });
-
-        it('should keep port when VPS URL already ends with /heartbeat', async () => {
-            post.mockResolvedValue({ data: { success: true } });
-
-            await sendHeartbeat('https://heartbeat.teol.casa:1337/api/heartbeat', secret, mockData);
-
-            const callArgs = post.mock.calls[0];
-            expect(callArgs[0]).toBe('https://heartbeat.teol.casa:1337/api/heartbeat');
+            expect(callArgs[0]).toBe(expected);
         });
 
         it('should generate unique nonce for each request', async () => {
