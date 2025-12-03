@@ -177,6 +177,24 @@ describe('heartbeat', () => {
             expect(callArgs[0]).toBe('https://example.com/heartbeat');
         });
 
+        it('should preserve custom port in VPS URL when appending /heartbeat', async () => {
+            post.mockResolvedValue({ data: { success: true } });
+
+            await sendHeartbeat('https://heartbeat.teol.casa:1337/api', secret, mockData);
+
+            const callArgs = post.mock.calls[0];
+            expect(callArgs[0]).toBe('https://heartbeat.teol.casa:1337/api/heartbeat');
+        });
+
+        it('should keep port when VPS URL already ends with /heartbeat', async () => {
+            post.mockResolvedValue({ data: { success: true } });
+
+            await sendHeartbeat('https://heartbeat.teol.casa:1337/api/heartbeat', secret, mockData);
+
+            const callArgs = post.mock.calls[0];
+            expect(callArgs[0]).toBe('https://heartbeat.teol.casa:1337/api/heartbeat');
+        });
+
         it('should generate unique nonce for each request', async () => {
             post.mockResolvedValue({ data: { success: true } });
 
