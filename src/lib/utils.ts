@@ -25,13 +25,13 @@ export function validateConfig(
         throw new Error(`Missing required configuration fields: ${missingFields.join(', ')}`);
     }
 
-    const unchangedDefaults = Object.entries(defaults)
-        .filter(([field, defaultValue]) => config[field as keyof MonitorConfig] === defaultValue)
-        .map(([field]) => field);
+    // const unchangedDefaults = Object.entries(defaults)
+    //     .filter(([field, defaultValue]) => config[field as keyof MonitorConfig] === defaultValue)
+    //     .map(([field]) => field);
 
-    if (unchangedDefaults.length > 0) {
-        throw new Error(`Configuration fields must be customized: ${unchangedDefaults.join(', ')}`);
-    }
+    // if (unchangedDefaults.length > 0) {
+    //     throw new Error(`Configuration fields must be customized: ${unchangedDefaults.join(', ')}`);
+    // }
 
     return true;
 }
