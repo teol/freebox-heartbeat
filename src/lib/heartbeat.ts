@@ -28,7 +28,8 @@ export async function sendHeartbeat(
         const bodyHash = createHash('sha256')
             .update(bodyString)
             .digest('base64url');
-        const canonicalMessage = `method=POST;path=${urlObject.pathname};ts=${timestamp};nonce=${nonce};body_sha256=${bodyHash}`;
+        // Important: path must be /heartbeat (without /api prefix) as per API specification
+        const canonicalMessage = `method=POST;path=/heartbeat;ts=${timestamp};nonce=${nonce};body_sha256=${bodyHash}`;
         const signature = createHmac('sha256', secret)
             .update(canonicalMessage)
             .digest('base64url');
