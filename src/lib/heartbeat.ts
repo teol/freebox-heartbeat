@@ -4,6 +4,8 @@ import { HttpClientError } from './http-client.js';
 import type { HeartbeatPayload } from './types.js';
 import { sleep, log } from './utils.js';
 
+const HEARTBEAT_PATH = '/heartbeat';
+
 export async function sendHeartbeat(
     vpsUrl: string,
     secret: string,
@@ -15,10 +17,10 @@ export async function sendHeartbeat(
     try {
         // Ensure the URL ends with /heartbeat using the URL API to preserve ports and query params
         const urlObject = new URL(vpsUrl);
-        const normalizedPath = urlObject.pathname.endsWith('/heartbeat')
+        const normalizedPath = urlObject.pathname.endsWith(HEARTBEAT_PATH)
             ? urlObject.pathname
-            : `${urlObject.pathname.replace(/\/$/, '')}/heartbeat`;
-        urlObject.pathname = normalizedPath || '/heartbeat';
+            : `${urlObject.pathname.replace(/\/$/, '')}${HEARTBEAT_PATH}`;
+        urlObject.pathname = normalizedPath || HEARTBEAT_PATH;
         const url = urlObject.toString();
 
         // Generate HMAC authentication headers
@@ -28,7 +30,8 @@ export async function sendHeartbeat(
         const bodyHash = createHash('sha256')
             .update(bodyString)
             .digest('base64url');
-        const canonicalMessage = `method=POST;path=${urlObject.pathname};ts=${timestamp};nonce=${nonce};body_sha256=${bodyHash}`;
+        // Important: path must be /heartbeat (without /api prefix) as per API specification
+        const canonicalMessage = `method=POST;path=${HEARTBEAT_PATH};ts=${timestamp};nonce=${nonce};body_sha256=${bodyHash}`;
         const signature = createHmac('sha256', secret)
             .update(canonicalMessage)
             .digest('base64url');
