@@ -172,13 +172,13 @@ describe('heartbeat', () => {
             },
             {
                 description: 'should preserve custom port when appending /heartbeat',
-                url: 'https://heartbeat.teol.casa:1337/api',
-                expected: 'https://heartbeat.teol.casa:1337/api/heartbeat'
+                url: 'https://api.example.com:8080/api',
+                expected: 'https://api.example.com:8080/api/heartbeat'
             },
             {
                 description: 'should keep port when VPS URL already ends with /heartbeat',
-                url: 'https://heartbeat.teol.casa:1337/api/heartbeat',
-                expected: 'https://heartbeat.teol.casa:1337/api/heartbeat'
+                url: 'https://api.example.com:8080/api/heartbeat',
+                expected: 'https://api.example.com:8080/api/heartbeat'
             },
             {
                 description: 'should preserve query params when appending /heartbeat',
