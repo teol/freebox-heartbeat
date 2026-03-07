@@ -3,9 +3,6 @@ import * as httpClient from './lib/http-client.js';
 import { config } from './lib/config.js';
 import * as freeboxApi from './lib/freebox-api.js';
 
-function v2Url(apiUrl: string): string {
-    return apiUrl.replace(/\/api\/v\d+$/, '/api/v2');
-}
 
 async function probe(label: string, url: string, headers: Record<string, string>): Promise<void> {
     console.log(`\n${'─'.repeat(60)}`);
@@ -35,7 +32,7 @@ async function main(): Promise<void> {
 
     const h = { 'X-Fbx-App-Auth': sessionToken };
     const api = config.freeboxApiUrl;
-    const api2 = v2Url(api);
+    const api2 = freeboxApi.toV2Url(api);
 
     // Connection
     await probe('Connection info', `${api}/connection/`, h);
