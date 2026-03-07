@@ -30,36 +30,38 @@ async function main(): Promise<void> {
     );
     console.log('Session opened.\n');
 
-    const h = { 'X-Fbx-App-Auth': sessionToken };
     const api = config.freeboxApiUrl;
-    const api2 = freeboxApi.toV2Url(api);
+    try {
+        const h = { 'X-Fbx-App-Auth': sessionToken };
+        const api2 = freeboxApi.toV2Url(api);
 
-    // Connection
-    await probe('Connection info', `${api}/connection/`, h);
-    await probe('Connection xDSL stats', `${api}/connection/xdsl/`, h);
-    await probe('Connection FTTH stats', `${api}/connection/ftth/`, h);
-    await probe('Connection logs', `${api}/connection/logs/`, h);
+        // Connection
+        await probe('Connection info', `${api}/connection/`, h);
+        await probe('Connection xDSL stats', `${api}/connection/xdsl/`, h);
+        await probe('Connection FTTH stats', `${api}/connection/ftth/`, h);
+        await probe('Connection logs', `${api}/connection/logs/`, h);
 
-    // System
-    await probe('System info (temps, uptime, fans)', `${api}/system/`, h);
+        // System
+        await probe('System info (temps, uptime, fans)', `${api}/system/`, h);
 
-    // Storage
-    await probe('Storage disks', `${api}/storage/disk/`, h);
+        // Storage
+        await probe('Storage disks', `${api}/storage/disk/`, h);
 
-    // LAN browser
-    await probe('LAN interfaces', `${api}/lan/browser/interfaces/`, h);
-    await probe('LAN hosts — pub (all active devices)', `${api}/lan/browser/pub/`, h);
+        // LAN browser
+        await probe('LAN interfaces', `${api}/lan/browser/interfaces/`, h);
+        await probe('LAN hosts — pub (all active devices)', `${api}/lan/browser/pub/`, h);
 
-    // WiFi (v2 only)
-    await probe('WiFi access points', `${api2}/wifi/ap/`, h);
-    await probe('WiFi BSS (sta_count per SSID)', `${api2}/wifi/bss/`, h);
-    await probe('WiFi stations — AP 0 (2.4 GHz)', `${api2}/wifi/ap/0/stations/`, h);
-    await probe('WiFi stations — AP 1 (5 GHz)', `${api2}/wifi/ap/1/stations/`, h);
+        // WiFi (v2 only)
+        await probe('WiFi access points', `${api2}/wifi/ap/`, h);
+        await probe('WiFi BSS (sta_count per SSID)', `${api2}/wifi/bss/`, h);
+        await probe('WiFi stations — AP 0 (2.4 GHz)', `${api2}/wifi/ap/0/stations/`, h);
+        await probe('WiFi stations — AP 1 (5 GHz)', `${api2}/wifi/ap/1/stations/`, h);
 
-    console.log(`\n${'─'.repeat(60)}`);
-
-    await freeboxApi.logoutFromFreebox(api, sessionToken);
-    console.log('\nSession closed.');
+        console.log(`\n${'─'.repeat(60)}`);
+    } finally {
+        await freeboxApi.logoutFromFreebox(api, sessionToken);
+        console.log('\nSession closed.');
+    }
 }
 
 main().catch((err) => {
