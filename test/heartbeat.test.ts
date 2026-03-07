@@ -107,7 +107,9 @@ describe('heartbeat', () => {
             const error = new HttpClientError('Not found', 404, 'Not Found');
             post.mockRejectedValue(error);
 
-            await expect(sendHeartbeat(vpsUrl, secret, mockData, 1, 50)).rejects.toThrow('404 - Not Found');
+            await expect(sendHeartbeat(vpsUrl, secret, mockData, 1, 50)).rejects.toThrow(
+                '404 - Not Found'
+            );
         });
 
         it('should retry with exponential backoff when called multiple times', async () => {
