@@ -239,26 +239,26 @@ export async function getConnectedDevices(
     const headers = { 'X-Fbx-App-Auth': sessionToken ?? '' };
 
     try {
-        const lanResponse = await httpClient.get<FreeboxResponse<LanHost[]>>(
-            `${apiUrl}/lan/browser/pub/`,
-            { headers, timeout: 10000 }
-        );
+        const [lanResponse, wifiResponse] = await Promise.all([
+            httpClient.get<FreeboxResponse<LanHost[]>>(`${apiUrl}/lan/browser/pub/`, {
+                headers,
+                timeout: 10000
+            }),
+            httpClient.get<FreeboxResponse<WifiBss[]>>(`${toV2Url(apiUrl)}/wifi/bss/`, {
+                headers,
+                timeout: 10000
+            })
+        ]);
 
         if (!lanResponse.data.success) {
             throw new Error(`LAN API error: ${lanResponse.data.msg || 'Unknown error'}`);
         }
 
-        const total = lanResponse.data.result.filter((host) => host.active).length;
-
-        const wifiResponse = await httpClient.get<FreeboxResponse<WifiBss[]>>(
-            `${toV2Url(apiUrl)}/wifi/bss/`,
-            { headers, timeout: 10000 }
-        );
-
         if (!wifiResponse.data.success) {
             throw new Error(`WiFi API error: ${wifiResponse.data.msg || 'Unknown error'}`);
         }
 
+        const total = lanResponse.data.result.filter((host) => host.active).length;
         const wifi = wifiResponse.data.result.reduce(
             (sum, bss) => sum + (bss.status?.sta_count ?? 0),
             0
