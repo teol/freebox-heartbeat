@@ -2,6 +2,7 @@ import {
     readAppToken,
     loginToFreebox,
     getConnectionInfo,
+    getConnectedDevices,
     logoutFromFreebox
 } from './freebox-api.js';
 import { sendHeartbeat } from './heartbeat.js';
@@ -56,9 +57,23 @@ export function createMonitor(config: MonitorConfig) {
         try {
             await authenticate();
             const connectionInfo = await fetchConnectionInfoWithRefresh();
-            const payload = buildHeartbeatPayload(connectionInfo);
 
-            await sendHeartbeat(config.vpsUrl, config.secret, payload, config.maxRetries, config.retryDelay);
+            let deviceCounts = null;
+            try {
+                deviceCounts = await getConnectedDevices(config.freeboxApiUrl, sessionToken);
+            } catch (error) {
+                log(`Failed to fetch connected devices: ${(error as Error).message}`, 'WARN');
+            }
+
+            const payload = buildHeartbeatPayload(connectionInfo, deviceCounts);
+
+            await sendHeartbeat(
+                config.vpsUrl,
+                config.secret,
+                payload,
+                config.maxRetries,
+                config.retryDelay
+            );
         } catch (error) {
             log(`Monitor iteration failed: ${(error as Error).message}`, 'ERROR');
 

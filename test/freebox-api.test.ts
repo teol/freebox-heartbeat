@@ -8,6 +8,7 @@ import {
     loginToFreebox,
     logoutFromFreebox,
     getConnectionInfo,
+    getConnectedDevices,
     requestAuthorization,
     trackAuthorizationStatus,
     saveToken
@@ -375,6 +376,101 @@ describe('freebox-api', () => {
             await expect(trackAuthorizationStatus('http://api', 999)).rejects.toThrow(
                 'Tracking failed: Not found'
             );
+        });
+    });
+
+    describe('getConnectedDevices', () => {
+        it('should return total active hosts and wifi station count', async () => {
+            const mockHosts = [
+                { id: '1', active: true, primary_name: 'Phone', host_type: 'smartphone' },
+                { id: '2', active: true, primary_name: 'Laptop', host_type: 'workstation' },
+                { id: '3', active: false, primary_name: 'OldDevice', host_type: 'workstation' }
+            ];
+            const mockBssResponse = [
+                { id: 'bss1', status: { sta_count: 2 } },
+                { id: 'bss2', status: { sta_count: 1 } }
+            ];
+
+            get.mockResolvedValueOnce({
+                data: { success: true, result: mockHosts }
+            }).mockResolvedValueOnce({ data: { success: true, result: mockBssResponse } });
+
+            const counts = await getConnectedDevices('http://api', 'session-token');
+
+            expect(counts.total).toBe(2);
+            expect(counts.wifi).toBe(3);
+            expect(get).toHaveBeenCalledWith('http://api/lan/browser/pub/', {
+                headers: { 'X-Fbx-App-Auth': 'session-token' },
+                timeout: 10000
+            });
+            expect(get).toHaveBeenCalledWith('http://api/wifi/bss/', {
+                headers: { 'X-Fbx-App-Auth': 'session-token' },
+                timeout: 10000
+            });
+        });
+
+        it('should return zero counts when no devices are active', async () => {
+            get.mockResolvedValueOnce({
+                data: { success: true, result: [] }
+            }).mockResolvedValueOnce({ data: { success: true, result: [] } });
+
+            const counts = await getConnectedDevices('http://api', 'session-token');
+
+            expect(counts.total).toBe(0);
+            expect(counts.wifi).toBe(0);
+        });
+
+        it('should handle missing sta_count gracefully', async () => {
+            const mockHosts = [
+                { id: '1', active: true, primary_name: 'Device', host_type: 'workstation' }
+            ];
+            const mockBssResponse = [{ id: 'bss1', status: {} }];
+
+            get.mockResolvedValueOnce({
+                data: { success: true, result: mockHosts }
+            }).mockResolvedValueOnce({ data: { success: true, result: mockBssResponse } });
+
+            const counts = await getConnectedDevices('http://api', 'session-token');
+
+            expect(counts.total).toBe(1);
+            expect(counts.wifi).toBe(0);
+        });
+
+        it('should throw error if LAN API returns failure', async () => {
+            get.mockResolvedValueOnce({
+                data: { success: false, msg: 'Access denied' }
+            });
+
+            await expect(getConnectedDevices('http://api', 'session-token')).rejects.toThrow(
+                'LAN API error: Access denied'
+            );
+        });
+
+        it('should throw error if WiFi API returns failure', async () => {
+            const mockHosts = [
+                { id: '1', active: true, primary_name: 'Device', host_type: 'workstation' }
+            ];
+            get.mockResolvedValueOnce({
+                data: { success: true, result: mockHosts }
+            }).mockResolvedValueOnce({ data: { success: false, msg: 'WiFi not available' } });
+
+            await expect(getConnectedDevices('http://api', 'session-token')).rejects.toThrow(
+                'WiFi API error: WiFi not available'
+            );
+        });
+
+        it('should handle null session token', async () => {
+            get.mockResolvedValueOnce({
+                data: { success: true, result: [] }
+            }).mockResolvedValueOnce({ data: { success: true, result: [] } });
+
+            const counts = await getConnectedDevices('http://api', null);
+
+            expect(get).toHaveBeenCalledWith('http://api/lan/browser/pub/', {
+                headers: { 'X-Fbx-App-Auth': '' },
+                timeout: 10000
+            });
+            expect(counts.total).toBe(0);
         });
     });
 
