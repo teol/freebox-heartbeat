@@ -228,7 +228,7 @@ export async function saveToken(
 }
 
 // The WiFi API is only available on /api/v2, regardless of the configured API version.
-function toV2Url(apiUrl: string): string {
+export function toV2Url(apiUrl: string): string {
     return apiUrl.replace(/\/api\/v\d+$/, '/api/v2');
 }
 
