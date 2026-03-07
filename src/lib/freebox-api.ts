@@ -227,6 +227,11 @@ export async function saveToken(
     }
 }
 
+// The WiFi API is only available on /api/v2, regardless of the configured API version.
+function toV2Url(apiUrl: string): string {
+    return apiUrl.replace(/\/api\/v\d+$/, '/api/v2');
+}
+
 export async function getConnectedDevices(
     apiUrl: string,
     sessionToken: string | null
@@ -246,7 +251,7 @@ export async function getConnectedDevices(
         const total = lanResponse.data.result.filter((host) => host.active).length;
 
         const wifiResponse = await httpClient.get<FreeboxResponse<WifiBss[]>>(
-            `${apiUrl}/wifi/bss/`,
+            `${toV2Url(apiUrl)}/wifi/bss/`,
             { headers, timeout: 10000 }
         );
 
