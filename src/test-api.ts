@@ -59,8 +59,12 @@ async function main(): Promise<void> {
 
         console.log(`\n${'─'.repeat(60)}`);
     } finally {
-        await freeboxApi.logoutFromFreebox(api, sessionToken);
-        console.log('\nSession closed.');
+        try {
+            await freeboxApi.logoutFromFreebox(api, sessionToken);
+            console.log('\nSession closed.');
+        } catch (error) {
+            console.error(`\nLogout failed: ${(error as Error).message}`);
+        }
     }
 }
 

@@ -238,36 +238,41 @@ export async function getConnectedDevices(
 ): Promise<DeviceCounts> {
     const headers = { 'X-Fbx-App-Auth': sessionToken ?? '' };
 
-    try {
-        const [lanResponse, wifiResponse] = await Promise.all([
-            httpClient.get<FreeboxResponse<LanHost[]>>(`${apiUrl}/lan/browser/pub/`, {
-                headers,
-                timeout: 10000
-            }),
-            httpClient.get<FreeboxResponse<WifiBss[]>>(`${toV2Url(apiUrl)}/wifi/bss/`, {
-                headers,
-                timeout: 10000
-            })
-        ]);
+    const [lanResult, wifiResult] = await Promise.allSettled([
+        httpClient.get<FreeboxResponse<LanHost[]>>(`${apiUrl}/lan/browser/pub/`, {
+            headers,
+            timeout: 10000
+        }),
+        httpClient.get<FreeboxResponse<WifiBss[]>>(`${toV2Url(apiUrl)}/wifi/bss/`, {
+            headers,
+            timeout: 10000
+        })
+    ]);
 
-        if (!lanResponse.data.success) {
-            throw new Error(`LAN API error: ${lanResponse.data.msg || 'Unknown error'}`);
-        }
+    if (lanResult.status === 'rejected') {
+        // A failure to get LAN devices is critical for this function.
+        handleHttpError(lanResult.reason, 'Failed to get connected devices from LAN API');
+    }
 
-        if (!wifiResponse.data.success) {
-            throw new Error(`WiFi API error: ${wifiResponse.data.msg || 'Unknown error'}`);
-        }
+    if (!lanResult.value.data.success) {
+        throw new Error(`LAN API error: ${lanResult.value.data.msg || 'Unknown error'}`);
+    }
 
-        const total = lanResponse.data.result.filter((host) => host.active).length;
-        const wifi = wifiResponse.data.result.reduce(
+    const total = lanResult.value.data.result.filter((host) => host.active).length;
+
+    let wifi = 0;
+    if (wifiResult.status === 'fulfilled' && wifiResult.value.data.success) {
+        wifi = wifiResult.value.data.result.reduce(
             (sum, bss) => sum + (bss.status?.sta_count ?? 0),
             0
         );
-
-        return { total, wifi };
-    } catch (error) {
-        handleHttpError(error, 'Failed to get connected devices');
+    } else if (wifiResult.status === 'rejected') {
+        // A failure to get WiFi devices is not critical. Log and continue.
+        console.warn(`Could not fetch WiFi device count: ${(wifiResult.reason as Error).message}`);
     }
+    // If wifiResult was fulfilled but not successful, we silently default to 0.
+
+    return { total, wifi };
 }
 
 export function isAuthorizationGranted(status: FreeboxAuthorizationStatus): boolean {
