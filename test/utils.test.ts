@@ -127,9 +127,39 @@ describe('utils', () => {
                 rate_down: 10176,
                 rate_up: 7954,
                 bytes_down: 43818124933,
-                bytes_up: 1353818610
+                bytes_up: 1353818610,
+                connected_devices_total: null,
+                connected_devices_wifi: null
             });
             expect(payload.timestamp).toMatch(/\d{4}-\d{2}-\d{2}T/);
+        });
+
+        it('should include device counts when provided', () => {
+            const connectionInfo = { state: 'up', media: 'ftth', type: 'ethernet' };
+            const deviceCounts = { total: 12, wifi: 8 };
+
+            const payload = buildHeartbeatPayload(connectionInfo, deviceCounts);
+
+            expect(payload.connected_devices_total).toBe(12);
+            expect(payload.connected_devices_wifi).toBe(8);
+        });
+
+        it('should use null for device counts when not provided', () => {
+            const connectionInfo = { state: 'up' };
+
+            const payload = buildHeartbeatPayload(connectionInfo);
+
+            expect(payload.connected_devices_total).toBeNull();
+            expect(payload.connected_devices_wifi).toBeNull();
+        });
+
+        it('should use null for device counts when explicitly null', () => {
+            const connectionInfo = { state: 'up' };
+
+            const payload = buildHeartbeatPayload(connectionInfo, null);
+
+            expect(payload.connected_devices_total).toBeNull();
+            expect(payload.connected_devices_wifi).toBeNull();
         });
 
         it('should use defaults for missing fields', () => {
@@ -148,14 +178,14 @@ describe('utils', () => {
                 rate_down: 0,
                 rate_up: 0,
                 bytes_down: 0,
-                bytes_up: 0
+                bytes_up: 0,
+                connected_devices_total: null,
+                connected_devices_wifi: null
             });
         });
 
         it('should throw error if connectionInfo is null', () => {
-            expect(() => buildHeartbeatPayload(null)).toThrow(
-                'Connection info is required'
-            );
+            expect(() => buildHeartbeatPayload(null)).toThrow('Connection info is required');
         });
 
         it('should handle partial connection info', () => {

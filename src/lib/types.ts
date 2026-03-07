@@ -25,6 +25,41 @@ export interface ConnectionInfo {
     ipv4_port_range?: [number, number] | null;
 }
 
+export interface LanHostL3Connectivity {
+    addr: string;
+    af: 'ipv4' | 'ipv6';
+    active: boolean;
+    reachable: boolean;
+    last_activity: number;
+    last_time_reachable: number;
+}
+
+export interface LanHost {
+    id: string;
+    primary_name: string;
+    host_type: string;
+    active: boolean;
+    reachable: boolean;
+    last_activity: number;
+    persistent: boolean;
+    vendor_name?: string;
+    l3connectivities: LanHostL3Connectivity[];
+}
+
+export interface WifiBssStatus {
+    sta_count: number;
+}
+
+export interface WifiBss {
+    id: string;
+    status: WifiBssStatus;
+}
+
+export interface DeviceCounts {
+    total: number;
+    wifi: number;
+}
+
 export interface HeartbeatPayload {
     ipv4: string | null;
     ipv6: string | null;
@@ -37,6 +72,8 @@ export interface HeartbeatPayload {
     rate_up: number;
     bytes_down: number;
     bytes_up: number;
+    connected_devices_total: number | null;
+    connected_devices_wifi: number | null;
     timestamp: string;
 }
 

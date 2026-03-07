@@ -4,9 +4,12 @@ import * as httpClient from './http-client.js';
 import { HttpClientError } from './http-client.js';
 import type {
     ConnectionInfo,
+    DeviceCounts,
     FreeboxAuthorizeResult,
     FreeboxAuthorizationStatus,
-    FreeboxConnectionResponse
+    FreeboxConnectionResponse,
+    LanHost,
+    WifiBss
 } from './types.js';
 
 interface FreeboxResponse<T> {
@@ -221,6 +224,44 @@ export async function saveToken(
         await fs.chmod(tokenFile, 0o600);
     } catch (error) {
         throw new Error(`Failed to save token: ${(error as Error).message}`);
+    }
+}
+
+export async function getConnectedDevices(
+    apiUrl: string,
+    sessionToken: string | null
+): Promise<DeviceCounts> {
+    const headers = { 'X-Fbx-App-Auth': sessionToken ?? '' };
+
+    try {
+        const lanResponse = await httpClient.get<FreeboxResponse<LanHost[]>>(
+            `${apiUrl}/lan/browser/pub/`,
+            { headers, timeout: 10000 }
+        );
+
+        if (!lanResponse.data.success) {
+            throw new Error(`LAN API error: ${lanResponse.data.msg || 'Unknown error'}`);
+        }
+
+        const total = lanResponse.data.result.filter((host) => host.active).length;
+
+        const wifiResponse = await httpClient.get<FreeboxResponse<WifiBss[]>>(
+            `${apiUrl}/wifi/bss/`,
+            { headers, timeout: 10000 }
+        );
+
+        if (!wifiResponse.data.success) {
+            throw new Error(`WiFi API error: ${wifiResponse.data.msg || 'Unknown error'}`);
+        }
+
+        const wifi = wifiResponse.data.result.reduce(
+            (sum, bss) => sum + (bss.status?.sta_count ?? 0),
+            0
+        );
+
+        return { total, wifi };
+    } catch (error) {
+        handleHttpError(error, 'Failed to get connected devices');
     }
 }
 

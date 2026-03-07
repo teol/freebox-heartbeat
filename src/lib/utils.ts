@@ -1,4 +1,4 @@
-import type { ConnectionInfo, HeartbeatPayload, MonitorConfig } from './types.js';
+import type { ConnectionInfo, DeviceCounts, HeartbeatPayload, MonitorConfig } from './types.js';
 
 export function log(message: string, level: 'INFO' | 'WARN' | 'ERROR' = 'INFO'): void {
     const timestamp = new Date().toISOString();
@@ -36,7 +36,10 @@ export function validateConfig(
     return true;
 }
 
-export function buildHeartbeatPayload(connectionInfo: ConnectionInfo | null): HeartbeatPayload {
+export function buildHeartbeatPayload(
+    connectionInfo: ConnectionInfo | null,
+    deviceCounts?: DeviceCounts | null
+): HeartbeatPayload {
     if (!connectionInfo) {
         throw new Error('Connection info is required');
     }
@@ -53,6 +56,8 @@ export function buildHeartbeatPayload(connectionInfo: ConnectionInfo | null): He
         rate_up: connectionInfo.rate_up ?? 0,
         bytes_down: connectionInfo.bytes_down ?? 0,
         bytes_up: connectionInfo.bytes_up ?? 0,
+        connected_devices_total: deviceCounts?.total ?? null,
+        connected_devices_wifi: deviceCounts?.wifi ?? null,
         timestamp: new Date().toISOString()
     };
 }
