@@ -452,6 +452,8 @@ describe('freebox-api', () => {
         it('should throw error if LAN API returns failure', async () => {
             get.mockResolvedValueOnce({
                 data: { success: false, msg: 'Access denied' }
+            }).mockResolvedValueOnce({
+                data: { success: true, result: [] }
             });
 
             await expect(getConnectedDevices('http://api', 'session-token')).rejects.toThrow(
