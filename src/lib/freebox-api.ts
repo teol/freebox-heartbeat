@@ -257,6 +257,10 @@ export async function getConnectedDevices(
         handleHttpError(lanResult.reason, 'Failed to get connected devices from LAN API');
     }
 
+    if (lanResult.status !== 'fulfilled') {
+        throw new Error('Failed to get connected devices from LAN API');
+    }
+
     if (!lanResult.value.data.success) {
         throw new Error(`LAN API error: ${lanResult.value.data.msg || 'Unknown error'}`);
     }
