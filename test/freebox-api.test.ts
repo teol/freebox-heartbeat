@@ -424,6 +424,19 @@ describe('freebox-api', () => {
             });
         });
 
+        it('should use /api/v2 base URL for wifi BSS endpoint when apiUrl has trailing slash', async () => {
+            get.mockResolvedValueOnce({
+                data: { success: true, result: [] }
+            }).mockResolvedValueOnce({ data: { success: true, result: [] } });
+
+            await getConnectedDevices('http://mafreebox.freebox.fr/api/v4/', 'session-token');
+
+            expect(get).toHaveBeenCalledWith('http://mafreebox.freebox.fr/api/v2/wifi/bss/', {
+                headers: { 'X-Fbx-App-Auth': 'session-token' },
+                timeout: 10000
+            });
+        });
+
         it('should return zero counts when no devices are active', async () => {
             get.mockResolvedValueOnce({
                 data: { success: true, result: [] }

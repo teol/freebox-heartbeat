@@ -59,7 +59,7 @@ export function buildHeartbeatPayload(
 
     // Use the hottest available CPU temperature for a single actionable metric.
     const cpuTemps = [systemInfo?.temp_cpu_cp_master, systemInfo?.temp_cpu_ap].filter(
-        (t): t is number => t !== undefined
+        (t): t is number => t != null
     );
     const tempCpu = cpuTemps.length > 0 ? Math.max(...cpuTemps) : null;
 
