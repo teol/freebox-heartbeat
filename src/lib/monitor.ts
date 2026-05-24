@@ -67,17 +67,23 @@ export function createMonitor(config: MonitorConfig) {
             ]);
 
             if (deviceCountsResult.status === 'rejected') {
+                const reason = deviceCountsResult.reason;
                 log(
-                    `Failed to fetch connected devices: ${(deviceCountsResult.reason as Error).message}`,
+                    `Failed to fetch connected devices: ${(reason as Error)?.message ?? String(reason)}`,
                     'WARN'
                 );
             }
             if (ftthResult.status === 'rejected') {
-                log(`Failed to fetch FTTH info: ${(ftthResult.reason as Error).message}`, 'WARN');
+                const reason = ftthResult.reason;
+                log(
+                    `Failed to fetch FTTH info: ${(reason as Error)?.message ?? String(reason)}`,
+                    'WARN'
+                );
             }
             if (systemResult.status === 'rejected') {
+                const reason = systemResult.reason;
                 log(
-                    `Failed to fetch system info: ${(systemResult.reason as Error).message}`,
+                    `Failed to fetch system info: ${(reason as Error)?.message ?? String(reason)}`,
                     'WARN'
                 );
             }
