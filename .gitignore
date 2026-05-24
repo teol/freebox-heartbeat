@@ -13,3 +13,4 @@ logs/*
 token.json
 dist/
 tsconfig.tsbuildinfo
+.claude/
