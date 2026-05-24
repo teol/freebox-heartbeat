@@ -541,10 +541,11 @@ describe('freebox-api', () => {
             );
         });
 
-        it('should return wifi 0 and not throw if WiFi API returns failure', async () => {
+        it('should warn and return wifi 0 if WiFi API returns success: false', async () => {
             const mockHosts = [
                 { id: '1', active: true, primary_name: 'Device', host_type: 'workstation' }
             ];
+            const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
             get.mockResolvedValueOnce({
                 data: { success: true, result: mockHosts }
             }).mockResolvedValueOnce({ data: { success: false, msg: 'WiFi not available' } });
@@ -553,6 +554,11 @@ describe('freebox-api', () => {
 
             expect(counts.total).toBe(1);
             expect(counts.wifi).toBe(0);
+            expect(warnSpy).toHaveBeenCalledWith(
+                expect.stringContaining('Could not fetch WiFi device count')
+            );
+            expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('WiFi not available'));
+            warnSpy.mockRestore();
         });
 
         it('should warn and return wifi 0 if WiFi API call is rejected', async () => {

@@ -275,11 +275,14 @@ export async function getConnectedDevices(
             (sum, bss) => sum + (bss.status?.sta_count ?? 0),
             0
         );
-    } else if (wifiResult.status === 'rejected') {
+    } else {
         // A failure to get WiFi devices is not critical. Log and continue.
-        console.warn(`Could not fetch WiFi device count: ${(wifiResult.reason as Error).message}`);
+        const errorMsg =
+            wifiResult.status === 'rejected'
+                ? (wifiResult.reason as Error).message
+                : (wifiResult.value.data.msg || 'Unknown API error');
+        console.warn(`Could not fetch WiFi device count: ${errorMsg}`);
     }
-    // If wifiResult was fulfilled but not successful, we silently default to 0.
 
     return { total, wifi, devices };
 }
