@@ -60,9 +60,13 @@ export function createMonitor(config: MonitorConfig) {
             await authenticate();
             const connectionInfo = await fetchConnectionInfoWithRefresh();
 
+            const isFtth = connectionInfo?.media === 'ftth';
+
             const [deviceCountsResult, ftthResult, systemResult] = await Promise.allSettled([
                 getConnectedDevices(config.freeboxApiUrl, sessionToken),
-                getFtthInfo(config.freeboxApiUrl, sessionToken),
+                isFtth
+                    ? getFtthInfo(config.freeboxApiUrl, sessionToken)
+                    : Promise.resolve(null),
                 getSystemInfo(config.freeboxApiUrl, sessionToken)
             ]);
 

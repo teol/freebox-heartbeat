@@ -124,6 +124,19 @@ describe('monitor', () => {
         expect(payload.uptime).toBe(7189324);
     });
 
+    it('skips FTTH fetch and sets sfp fields to null on non-FTTH connections', async () => {
+        setupDefaultMocks();
+        freeboxApi.getConnectionInfo.mockResolvedValue({ state: 'up', media: 'backup' });
+
+        const monitor = createMonitor(mockConfig);
+        await monitor.start();
+
+        expect(freeboxApi.getFtthInfo).not.toHaveBeenCalled();
+        const payload = heartbeat.sendHeartbeat.mock.calls[0][2];
+        expect(payload.sfp_pwr_rx_dbm).toBeNull();
+        expect(payload.sfp_pwr_tx_dbm).toBeNull();
+    });
+
     it('sends heartbeat with null optional fields when secondary fetches fail', async () => {
         setupDefaultMocks();
         freeboxApi.getConnectedDevices.mockRejectedValue(new Error('LAN API unreachable'));
