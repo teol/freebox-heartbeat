@@ -25,6 +25,22 @@ export interface ConnectionInfo {
     ipv4_port_range?: [number, number] | null;
 }
 
+export interface FtthInfo {
+    // Raw values from the API are in units of 0.01 dBm (divide by 100 to get dBm).
+    sfp_pwr_rx: number;
+    sfp_pwr_tx: number;
+    sfp_has_signal: boolean;
+    link: boolean;
+}
+
+export interface SystemInfo {
+    temp_cpu_cp_master?: number;
+    temp_cpu_ap?: number;
+    temp_sw?: number;
+    fan_rpm?: number;
+    uptime_val?: number;
+}
+
 export interface LanHostL3Connectivity {
     addr: string;
     af: 'ipv4' | 'ipv6';
@@ -61,6 +77,7 @@ export interface DeviceCounts {
 }
 
 export interface HeartbeatPayload {
+    // Connection
     ipv4: string | null;
     ipv6: string | null;
     connection_state: string;
@@ -72,8 +89,17 @@ export interface HeartbeatPayload {
     rate_up: number;
     bytes_down: number;
     bytes_up: number;
+    // Connected devices
     connected_devices_total: number | null;
     connected_devices_wifi: number | null;
+    // FTTH optical link (null on non-FTTH lines)
+    sfp_pwr_rx_dbm: number | null;
+    sfp_pwr_tx_dbm: number | null;
+    // System health
+    temp_cpu: number | null;
+    temp_switch: number | null;
+    fan_rpm: number | null;
+    uptime: number | null;
     timestamp: string;
 }
 

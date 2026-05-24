@@ -5,6 +5,8 @@ vi.mock('../src/lib/freebox-api.js', () => ({
     loginToFreebox: vi.fn(),
     getConnectionInfo: vi.fn(),
     getConnectedDevices: vi.fn(),
+    getFtthInfo: vi.fn(),
+    getSystemInfo: vi.fn(),
     logoutFromFreebox: vi.fn()
 }));
 
@@ -49,12 +51,29 @@ describe('monitor', () => {
         vi.useRealTimers();
     });
 
-    it('starts monitoring loop and schedules intervals', async () => {
+    function setupDefaultMocks() {
         freeboxApi.readAppToken.mockResolvedValue('app-token');
         freeboxApi.loginToFreebox.mockResolvedValue('session-token');
         freeboxApi.getConnectionInfo.mockResolvedValue({ state: 'up', media: 'ftth' });
         freeboxApi.getConnectedDevices.mockResolvedValue({ total: 5, wifi: 3 });
+        freeboxApi.getFtthInfo.mockResolvedValue({
+            sfp_pwr_rx: -1917,
+            sfp_pwr_tx: 269,
+            sfp_has_signal: true,
+            link: true
+        });
+        freeboxApi.getSystemInfo.mockResolvedValue({
+            temp_cpu_cp_master: 74,
+            temp_cpu_ap: 63,
+            temp_sw: 45,
+            fan_rpm: 1441,
+            uptime_val: 7189324
+        });
         heartbeat.sendHeartbeat.mockResolvedValue({ success: true });
+    }
+
+    it('starts monitoring loop and schedules intervals', async () => {
+        setupDefaultMocks();
 
         const monitor = createMonitor(mockConfig);
         await monitor.start();
@@ -68,11 +87,8 @@ describe('monitor', () => {
     });
 
     it('includes device counts in the heartbeat payload', async () => {
-        freeboxApi.readAppToken.mockResolvedValue('app-token');
-        freeboxApi.loginToFreebox.mockResolvedValue('session-token');
-        freeboxApi.getConnectionInfo.mockResolvedValue({ state: 'up', media: 'ftth' });
+        setupDefaultMocks();
         freeboxApi.getConnectedDevices.mockResolvedValue({ total: 10, wifi: 7 });
-        heartbeat.sendHeartbeat.mockResolvedValue({ success: true });
 
         const monitor = createMonitor(mockConfig);
         await monitor.start();
@@ -82,12 +98,26 @@ describe('monitor', () => {
         expect(payload.connected_devices_wifi).toBe(7);
     });
 
-    it('sends heartbeat with null device counts when device fetch fails', async () => {
-        freeboxApi.readAppToken.mockResolvedValue('app-token');
-        freeboxApi.loginToFreebox.mockResolvedValue('session-token');
-        freeboxApi.getConnectionInfo.mockResolvedValue({ state: 'up', media: 'ftth' });
+    it('includes FTTH and system data in the heartbeat payload', async () => {
+        setupDefaultMocks();
+
+        const monitor = createMonitor(mockConfig);
+        await monitor.start();
+
+        const payload = heartbeat.sendHeartbeat.mock.calls[0][2];
+        expect(payload.sfp_pwr_rx_dbm).toBeCloseTo(-19.17, 1);
+        expect(payload.sfp_pwr_tx_dbm).toBeCloseTo(2.69, 1);
+        expect(payload.temp_cpu).toBe(74);
+        expect(payload.temp_switch).toBe(45);
+        expect(payload.fan_rpm).toBe(1441);
+        expect(payload.uptime).toBe(7189324);
+    });
+
+    it('sends heartbeat with null optional fields when secondary fetches fail', async () => {
+        setupDefaultMocks();
         freeboxApi.getConnectedDevices.mockRejectedValue(new Error('LAN API unreachable'));
-        heartbeat.sendHeartbeat.mockResolvedValue({ success: true });
+        freeboxApi.getFtthInfo.mockRejectedValue(new Error('FTTH API error'));
+        freeboxApi.getSystemInfo.mockRejectedValue(new Error('System API error'));
 
         const monitor = createMonitor(mockConfig);
         await monitor.start();
@@ -96,14 +126,12 @@ describe('monitor', () => {
         const payload = heartbeat.sendHeartbeat.mock.calls[0][2];
         expect(payload.connected_devices_total).toBeNull();
         expect(payload.connected_devices_wifi).toBeNull();
+        expect(payload.sfp_pwr_rx_dbm).toBeNull();
+        expect(payload.temp_cpu).toBeNull();
     });
 
     it('refreshes session after configured interval', async () => {
-        freeboxApi.readAppToken.mockResolvedValue('app-token');
-        freeboxApi.loginToFreebox.mockResolvedValue('session-token');
-        freeboxApi.getConnectionInfo.mockResolvedValue({ state: 'up', media: 'ftth' });
-        freeboxApi.getConnectedDevices.mockResolvedValue({ total: 5, wifi: 3 });
-        heartbeat.sendHeartbeat.mockResolvedValue({ success: true });
+        setupDefaultMocks();
 
         const monitor = createMonitor({ ...mockConfig, heartbeatInterval: 500 });
         await monitor.start();
@@ -117,14 +145,11 @@ describe('monitor', () => {
     });
 
     it('re-authenticates when connection fetch returns auth error', async () => {
-        freeboxApi.readAppToken.mockResolvedValue('app-token');
-        freeboxApi.loginToFreebox.mockResolvedValue('session-token');
+        setupDefaultMocks();
         const authError = new Error('Invalid session token');
         freeboxApi.getConnectionInfo
             .mockRejectedValueOnce(authError)
             .mockResolvedValueOnce({ state: 'up', media: 'ftth' });
-        freeboxApi.getConnectedDevices.mockResolvedValue({ total: 5, wifi: 3 });
-        heartbeat.sendHeartbeat.mockResolvedValue({ success: true });
 
         const monitor = createMonitor(mockConfig);
         await monitor.start();
@@ -134,11 +159,7 @@ describe('monitor', () => {
     });
 
     it('logs out and stops scheduling on shutdown', async () => {
-        freeboxApi.readAppToken.mockResolvedValue('app-token');
-        freeboxApi.loginToFreebox.mockResolvedValue('session-token');
-        freeboxApi.getConnectionInfo.mockResolvedValue({ state: 'up', media: 'ftth' });
-        freeboxApi.getConnectedDevices.mockResolvedValue({ total: 5, wifi: 3 });
-        heartbeat.sendHeartbeat.mockResolvedValue({ success: true });
+        setupDefaultMocks();
         freeboxApi.logoutFromFreebox.mockResolvedValue();
 
         const monitor = createMonitor(mockConfig);

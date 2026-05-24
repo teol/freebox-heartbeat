@@ -1,4 +1,11 @@
-import type { ConnectionInfo, DeviceCounts, HeartbeatPayload, MonitorConfig } from './types.js';
+import type {
+    ConnectionInfo,
+    DeviceCounts,
+    FtthInfo,
+    HeartbeatPayload,
+    MonitorConfig,
+    SystemInfo
+} from './types.js';
 
 export function log(message: string, level: 'INFO' | 'WARN' | 'ERROR' = 'INFO'): void {
     const timestamp = new Date().toISOString();
@@ -38,11 +45,23 @@ export function validateConfig(
 
 export function buildHeartbeatPayload(
     connectionInfo: ConnectionInfo | null,
-    deviceCounts?: DeviceCounts | null
+    deviceCounts?: DeviceCounts | null,
+    ftthInfo?: FtthInfo | null,
+    systemInfo?: SystemInfo | null
 ): HeartbeatPayload {
     if (!connectionInfo) {
         throw new Error('Connection info is required');
     }
+
+    // sfp_pwr_rx/tx are in units of 0.01 dBm; convert to dBm rounded to 2 decimal places.
+    const sfpRx = ftthInfo?.sfp_pwr_rx != null ? Math.round(ftthInfo.sfp_pwr_rx) / 100 : null;
+    const sfpTx = ftthInfo?.sfp_pwr_tx != null ? Math.round(ftthInfo.sfp_pwr_tx) / 100 : null;
+
+    // Use the hottest available CPU temperature for a single actionable metric.
+    const cpuTemps = [systemInfo?.temp_cpu_cp_master, systemInfo?.temp_cpu_ap].filter(
+        (t): t is number => t !== undefined
+    );
+    const tempCpu = cpuTemps.length > 0 ? Math.max(...cpuTemps) : null;
 
     return {
         ipv4: connectionInfo.ipv4 ?? null,
@@ -58,6 +77,12 @@ export function buildHeartbeatPayload(
         bytes_up: connectionInfo.bytes_up ?? 0,
         connected_devices_total: deviceCounts?.total ?? null,
         connected_devices_wifi: deviceCounts?.wifi ?? null,
+        sfp_pwr_rx_dbm: sfpRx,
+        sfp_pwr_tx_dbm: sfpTx,
+        temp_cpu: tempCpu,
+        temp_switch: systemInfo?.temp_sw ?? null,
+        fan_rpm: systemInfo?.fan_rpm ?? null,
+        uptime: systemInfo?.uptime_val ?? null,
         timestamp: new Date().toISOString()
     };
 }

@@ -3,7 +3,6 @@ import * as httpClient from './lib/http-client.js';
 import { config } from './lib/config.js';
 import * as freeboxApi from './lib/freebox-api.js';
 
-
 async function probe(label: string, url: string, headers: Record<string, string>): Promise<void> {
     console.log(`\n${'─'.repeat(60)}`);
     console.log(`  ${label}`);
@@ -31,13 +30,12 @@ async function main(): Promise<void> {
     console.log('Session opened.\n');
 
     const api = config.freeboxApiUrl;
+    const api2 = freeboxApi.toV2Url(api);
     try {
         const h = { 'X-Fbx-App-Auth': sessionToken };
-        const api2 = freeboxApi.toV2Url(api);
 
         // Connection
         await probe('Connection info', `${api}/connection/`, h);
-        await probe('Connection xDSL stats', `${api}/connection/xdsl/`, h);
         await probe('Connection FTTH stats', `${api}/connection/ftth/`, h);
         await probe('Connection logs', `${api}/connection/logs/`, h);
 
@@ -51,11 +49,8 @@ async function main(): Promise<void> {
         await probe('LAN interfaces', `${api}/lan/browser/interfaces/`, h);
         await probe('LAN hosts — pub (all active devices)', `${api}/lan/browser/pub/`, h);
 
-        // WiFi (v2 only)
-        await probe('WiFi access points', `${api2}/wifi/ap/`, h);
-        await probe('WiFi BSS (sta_count per SSID)', `${api2}/wifi/bss/`, h);
-        await probe('WiFi stations — AP 0 (2.4 GHz)', `${api2}/wifi/ap/0/stations/`, h);
-        await probe('WiFi stations — AP 1 (5 GHz)', `${api2}/wifi/ap/1/stations/`, h);
+        // WiFi (v2 only) — AP stations require BSSID-based IDs, use BSS for counts
+        await probe('WiFi BSS (sta_count per band)', `${api2}/wifi/bss/`, h);
 
         console.log(`\n${'─'.repeat(60)}`);
     } finally {

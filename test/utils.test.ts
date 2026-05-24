@@ -129,9 +129,53 @@ describe('utils', () => {
                 bytes_down: 43818124933,
                 bytes_up: 1353818610,
                 connected_devices_total: null,
-                connected_devices_wifi: null
+                connected_devices_wifi: null,
+                sfp_pwr_rx_dbm: null,
+                sfp_pwr_tx_dbm: null,
+                temp_cpu: null,
+                temp_switch: null,
+                fan_rpm: null,
+                uptime: null
             });
             expect(payload.timestamp).toMatch(/\d{4}-\d{2}-\d{2}T/);
+        });
+
+        it('should include FTTH optical power converted from raw to dBm', () => {
+            const payload = buildHeartbeatPayload({ state: 'up' }, null, {
+                sfp_pwr_rx: -1917,
+                sfp_pwr_tx: 269,
+                sfp_has_signal: true,
+                link: true
+            });
+
+            expect(payload.sfp_pwr_rx_dbm).toBeCloseTo(-19.17, 2);
+            expect(payload.sfp_pwr_tx_dbm).toBeCloseTo(2.69, 2);
+        });
+
+        it('should use the hottest CPU temperature', () => {
+            const payload = buildHeartbeatPayload({ state: 'up' }, null, null, {
+                temp_cpu_cp_master: 74,
+                temp_cpu_ap: 63,
+                temp_sw: 45,
+                fan_rpm: 1441,
+                uptime_val: 7189324
+            });
+
+            expect(payload.temp_cpu).toBe(74);
+            expect(payload.temp_switch).toBe(45);
+            expect(payload.fan_rpm).toBe(1441);
+            expect(payload.uptime).toBe(7189324);
+        });
+
+        it('should use null for FTTH and system fields when not provided', () => {
+            const payload = buildHeartbeatPayload({ state: 'up' });
+
+            expect(payload.sfp_pwr_rx_dbm).toBeNull();
+            expect(payload.sfp_pwr_tx_dbm).toBeNull();
+            expect(payload.temp_cpu).toBeNull();
+            expect(payload.temp_switch).toBeNull();
+            expect(payload.fan_rpm).toBeNull();
+            expect(payload.uptime).toBeNull();
         });
 
         it('should include device counts when provided', () => {

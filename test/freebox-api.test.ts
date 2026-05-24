@@ -9,6 +9,8 @@ import {
     logoutFromFreebox,
     getConnectionInfo,
     getConnectedDevices,
+    getFtthInfo,
+    getSystemInfo,
     requestAuthorization,
     trackAuthorizationStatus,
     saveToken
@@ -506,6 +508,63 @@ describe('freebox-api', () => {
                 timeout: 10000
             });
             expect(counts.total).toBe(0);
+        });
+    });
+
+    describe('getFtthInfo', () => {
+        it('should retrieve FTTH optical stats', async () => {
+            const mockFtth = {
+                sfp_pwr_rx: -1917,
+                sfp_pwr_tx: 269,
+                sfp_has_signal: true,
+                link: true
+            };
+            get.mockResolvedValue({ data: { success: true, result: mockFtth } });
+
+            const info = await getFtthInfo('http://api', 'session-token');
+
+            expect(info).toEqual(mockFtth);
+            expect(get).toHaveBeenCalledWith('http://api/connection/ftth/', {
+                headers: { 'X-Fbx-App-Auth': 'session-token' },
+                timeout: 10000
+            });
+        });
+
+        it('should throw error if API returns failure', async () => {
+            get.mockResolvedValue({ data: { success: false, msg: 'service_down' } });
+
+            await expect(getFtthInfo('http://api', 'session-token')).rejects.toThrow(
+                'FTTH API error: service_down'
+            );
+        });
+    });
+
+    describe('getSystemInfo', () => {
+        it('should retrieve system temperatures and uptime', async () => {
+            const mockSystem = {
+                temp_cpu_cp_master: 74,
+                temp_cpu_ap: 63,
+                temp_sw: 45,
+                fan_rpm: 1441,
+                uptime_val: 7189324
+            };
+            get.mockResolvedValue({ data: { success: true, result: mockSystem } });
+
+            const info = await getSystemInfo('http://api', 'session-token');
+
+            expect(info).toEqual(mockSystem);
+            expect(get).toHaveBeenCalledWith('http://api/system/', {
+                headers: { 'X-Fbx-App-Auth': 'session-token' },
+                timeout: 10000
+            });
+        });
+
+        it('should throw error if API returns failure', async () => {
+            get.mockResolvedValue({ data: { success: false, msg: 'Unauthorized' } });
+
+            await expect(getSystemInfo('http://api', 'session-token')).rejects.toThrow(
+                'System API error: Unauthorized'
+            );
         });
     });
 

@@ -8,7 +8,9 @@ import type {
     FreeboxAuthorizeResult,
     FreeboxAuthorizationStatus,
     FreeboxConnectionResponse,
+    FtthInfo,
     LanHost,
+    SystemInfo,
     WifiBss
 } from './types.js';
 
@@ -273,6 +275,46 @@ export async function getConnectedDevices(
     // If wifiResult was fulfilled but not successful, we silently default to 0.
 
     return { total, wifi };
+}
+
+export async function getFtthInfo(apiUrl: string, sessionToken: string | null): Promise<FtthInfo> {
+    try {
+        const response = await httpClient.get<FreeboxResponse<FtthInfo>>(
+            `${apiUrl}/connection/ftth/`,
+            {
+                headers: { 'X-Fbx-App-Auth': sessionToken ?? '' },
+                timeout: 10000
+            }
+        );
+
+        if (!response.data.success) {
+            throw new Error(`FTTH API error: ${response.data.msg || 'Unknown error'}`);
+        }
+
+        return response.data.result;
+    } catch (error) {
+        handleHttpError(error, 'Failed to get FTTH info');
+    }
+}
+
+export async function getSystemInfo(
+    apiUrl: string,
+    sessionToken: string | null
+): Promise<SystemInfo> {
+    try {
+        const response = await httpClient.get<FreeboxResponse<SystemInfo>>(`${apiUrl}/system/`, {
+            headers: { 'X-Fbx-App-Auth': sessionToken ?? '' },
+            timeout: 10000
+        });
+
+        if (!response.data.success) {
+            throw new Error(`System API error: ${response.data.msg || 'Unknown error'}`);
+        }
+
+        return response.data.result;
+    } catch (error) {
+        handleHttpError(error, 'Failed to get system info');
+    }
 }
 
 export function isAuthorizationGranted(status: FreeboxAuthorizationStatus): boolean {

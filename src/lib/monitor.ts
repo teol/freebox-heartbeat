@@ -3,6 +3,8 @@ import {
     loginToFreebox,
     getConnectionInfo,
     getConnectedDevices,
+    getFtthInfo,
+    getSystemInfo,
     logoutFromFreebox
 } from './freebox-api.js';
 import { sendHeartbeat } from './heartbeat.js';
@@ -58,14 +60,34 @@ export function createMonitor(config: MonitorConfig) {
             await authenticate();
             const connectionInfo = await fetchConnectionInfoWithRefresh();
 
-            let deviceCounts = null;
-            try {
-                deviceCounts = await getConnectedDevices(config.freeboxApiUrl, sessionToken);
-            } catch (error) {
-                log(`Failed to fetch connected devices: ${(error as Error).message}`, 'WARN');
+            const [deviceCountsResult, ftthResult, systemResult] = await Promise.allSettled([
+                getConnectedDevices(config.freeboxApiUrl, sessionToken),
+                getFtthInfo(config.freeboxApiUrl, sessionToken),
+                getSystemInfo(config.freeboxApiUrl, sessionToken)
+            ]);
+
+            if (deviceCountsResult.status === 'rejected') {
+                log(
+                    `Failed to fetch connected devices: ${(deviceCountsResult.reason as Error).message}`,
+                    'WARN'
+                );
+            }
+            if (ftthResult.status === 'rejected') {
+                log(`Failed to fetch FTTH info: ${(ftthResult.reason as Error).message}`, 'WARN');
+            }
+            if (systemResult.status === 'rejected') {
+                log(
+                    `Failed to fetch system info: ${(systemResult.reason as Error).message}`,
+                    'WARN'
+                );
             }
 
-            const payload = buildHeartbeatPayload(connectionInfo, deviceCounts);
+            const payload = buildHeartbeatPayload(
+                connectionInfo,
+                deviceCountsResult.status === 'fulfilled' ? deviceCountsResult.value : null,
+                ftthResult.status === 'fulfilled' ? ftthResult.value : null,
+                systemResult.status === 'fulfilled' ? systemResult.value : null
+            );
 
             await sendHeartbeat(
                 config.vpsUrl,
