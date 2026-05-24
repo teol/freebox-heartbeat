@@ -55,7 +55,7 @@ describe('monitor', () => {
         freeboxApi.readAppToken.mockResolvedValue('app-token');
         freeboxApi.loginToFreebox.mockResolvedValue('session-token');
         freeboxApi.getConnectionInfo.mockResolvedValue({ state: 'up', media: 'ftth' });
-        freeboxApi.getConnectedDevices.mockResolvedValue({ total: 5, wifi: 3 });
+        freeboxApi.getConnectedDevices.mockResolvedValue({ total: 5, wifi: 3, devices: [] });
         freeboxApi.getFtthInfo.mockResolvedValue({
             sfp_pwr_rx: -1917,
             sfp_pwr_tx: 269,
@@ -86,9 +86,16 @@ describe('monitor', () => {
         expect(heartbeat.sendHeartbeat.mock.calls.length).toBeGreaterThanOrEqual(2);
     });
 
-    it('includes device counts in the heartbeat payload', async () => {
+    it('includes device counts and active_devices in the heartbeat payload', async () => {
         setupDefaultMocks();
-        freeboxApi.getConnectedDevices.mockResolvedValue({ total: 10, wifi: 7 });
+        freeboxApi.getConnectedDevices.mockResolvedValue({
+            total: 10,
+            wifi: 7,
+            devices: [
+                { mac: 'AA:BB:CC:11:22:33', name: 'TestPhone', type: 'smartphone' },
+                { mac: 'DD:EE:FF:44:55:66', name: 'TestDesktop', type: 'workstation' }
+            ]
+        });
 
         const monitor = createMonitor(mockConfig);
         await monitor.start();
@@ -96,6 +103,10 @@ describe('monitor', () => {
         const payload = heartbeat.sendHeartbeat.mock.calls[0][2];
         expect(payload.connected_devices_total).toBe(10);
         expect(payload.connected_devices_wifi).toBe(7);
+        expect(payload.active_devices).toEqual([
+            { mac: 'AA:BB:CC:11:22:33', name: 'TestPhone', type: 'smartphone' },
+            { mac: 'DD:EE:FF:44:55:66', name: 'TestDesktop', type: 'workstation' }
+        ]);
     });
 
     it('includes FTTH and system data in the heartbeat payload', async () => {
@@ -126,6 +137,7 @@ describe('monitor', () => {
         const payload = heartbeat.sendHeartbeat.mock.calls[0][2];
         expect(payload.connected_devices_total).toBeNull();
         expect(payload.connected_devices_wifi).toBeNull();
+        expect(payload.active_devices).toBeNull();
         expect(payload.sfp_pwr_rx_dbm).toBeNull();
         expect(payload.temp_cpu).toBeNull();
     });

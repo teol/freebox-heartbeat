@@ -130,6 +130,7 @@ describe('utils', () => {
                 bytes_up: 1353818610,
                 connected_devices_total: null,
                 connected_devices_wifi: null,
+                active_devices: null,
                 sfp_pwr_rx_dbm: null,
                 sfp_pwr_tx_dbm: null,
                 temp_cpu: null,
@@ -180,12 +181,31 @@ describe('utils', () => {
 
         it('should include device counts when provided', () => {
             const connectionInfo = { state: 'up', media: 'ftth', type: 'ethernet' };
-            const deviceCounts = { total: 12, wifi: 8 };
+            const deviceCounts = { total: 12, wifi: 8, devices: [] };
 
             const payload = buildHeartbeatPayload(connectionInfo, deviceCounts);
 
             expect(payload.connected_devices_total).toBe(12);
             expect(payload.connected_devices_wifi).toBe(8);
+        });
+
+        it('should include active_devices list in payload', () => {
+            const connectionInfo = { state: 'up' };
+            const deviceCounts = {
+                total: 2,
+                wifi: 1,
+                devices: [
+                    { mac: 'AA:BB:CC:11:22:33', name: 'TestPhone', type: 'smartphone' },
+                    { mac: 'DD:EE:FF:44:55:66', name: 'TestDesktop', type: 'workstation' }
+                ]
+            };
+
+            const payload = buildHeartbeatPayload(connectionInfo, deviceCounts);
+
+            expect(payload.active_devices).toEqual([
+                { mac: 'AA:BB:CC:11:22:33', name: 'TestPhone', type: 'smartphone' },
+                { mac: 'DD:EE:FF:44:55:66', name: 'TestDesktop', type: 'workstation' }
+            ]);
         });
 
         it('should use null for device counts when not provided', () => {
@@ -195,6 +215,7 @@ describe('utils', () => {
 
             expect(payload.connected_devices_total).toBeNull();
             expect(payload.connected_devices_wifi).toBeNull();
+            expect(payload.active_devices).toBeNull();
         });
 
         it('should use null for device counts when explicitly null', () => {
@@ -204,6 +225,7 @@ describe('utils', () => {
 
             expect(payload.connected_devices_total).toBeNull();
             expect(payload.connected_devices_wifi).toBeNull();
+            expect(payload.active_devices).toBeNull();
         });
 
         it('should use defaults for missing fields', () => {
@@ -224,7 +246,8 @@ describe('utils', () => {
                 bytes_down: 0,
                 bytes_up: 0,
                 connected_devices_total: null,
-                connected_devices_wifi: null
+                connected_devices_wifi: null,
+                active_devices: null
             });
         });
 

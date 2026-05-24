@@ -77,6 +77,7 @@ export function buildHeartbeatPayload(
         bytes_up: connectionInfo.bytes_up ?? 0,
         connected_devices_total: deviceCounts?.total ?? null,
         connected_devices_wifi: deviceCounts?.wifi ?? null,
+        active_devices: deviceCounts?.devices ?? null,
         sfp_pwr_rx_dbm: sfpRx,
         sfp_pwr_tx_dbm: sfpTx,
         temp_cpu: tempCpu,

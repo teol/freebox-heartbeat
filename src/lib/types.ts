@@ -50,6 +50,11 @@ export interface LanHostL3Connectivity {
     last_time_reachable: number;
 }
 
+export interface LanHostL2Ident {
+    id: string;
+    type: string;
+}
+
 export interface LanHost {
     id: string;
     primary_name: string;
@@ -59,6 +64,7 @@ export interface LanHost {
     last_activity: number;
     persistent: boolean;
     vendor_name?: string;
+    l2ident?: LanHostL2Ident;
     l3connectivities: LanHostL3Connectivity[];
 }
 
@@ -71,9 +77,16 @@ export interface WifiBss {
     status: WifiBssStatus;
 }
 
+export interface DeviceSnapshot {
+    mac: string;
+    name: string;
+    type: string;
+}
+
 export interface DeviceCounts {
     total: number;
     wifi: number;
+    devices: DeviceSnapshot[];
 }
 
 export interface HeartbeatPayload {
@@ -92,6 +105,7 @@ export interface HeartbeatPayload {
     // Connected devices
     connected_devices_total: number | null;
     connected_devices_wifi: number | null;
+    active_devices: DeviceSnapshot[] | null;
     // FTTH optical link (null on non-FTTH lines)
     sfp_pwr_rx_dbm: number | null;
     sfp_pwr_tx_dbm: number | null;

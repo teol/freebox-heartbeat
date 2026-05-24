@@ -5,6 +5,7 @@ import { HttpClientError } from './http-client.js';
 import type {
     ConnectionInfo,
     DeviceCounts,
+    DeviceSnapshot,
     FreeboxAuthorizeResult,
     FreeboxAuthorizationStatus,
     FreeboxConnectionResponse,
@@ -260,7 +261,13 @@ export async function getConnectedDevices(
         throw new Error(`LAN API error: ${lanResult.value.data.msg || 'Unknown error'}`);
     }
 
-    const total = lanResult.value.data.result.filter((host) => host.active).length;
+    const activeHosts = lanResult.value.data.result.filter((host) => host.active);
+    const total = activeHosts.length;
+    const devices: DeviceSnapshot[] = activeHosts.map((host) => ({
+        mac: host.l2ident?.id ?? '',
+        name: host.primary_name,
+        type: host.host_type
+    }));
 
     let wifi = 0;
     if (wifiResult.status === 'fulfilled' && wifiResult.value.data.success) {
@@ -274,7 +281,7 @@ export async function getConnectedDevices(
     }
     // If wifiResult was fulfilled but not successful, we silently default to 0.
 
-    return { total, wifi };
+    return { total, wifi, devices };
 }
 
 export async function getFtthInfo(apiUrl: string, sessionToken: string | null): Promise<FtthInfo> {

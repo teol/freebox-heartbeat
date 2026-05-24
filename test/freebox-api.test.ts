@@ -384,9 +384,27 @@ describe('freebox-api', () => {
     describe('getConnectedDevices', () => {
         it('should return total active hosts and wifi station count', async () => {
             const mockHosts = [
-                { id: '1', active: true, primary_name: 'Phone', host_type: 'smartphone' },
-                { id: '2', active: true, primary_name: 'Laptop', host_type: 'workstation' },
-                { id: '3', active: false, primary_name: 'OldDevice', host_type: 'workstation' }
+                {
+                    id: '1',
+                    active: true,
+                    primary_name: 'TestPhone',
+                    host_type: 'smartphone',
+                    l2ident: { id: 'AA:BB:CC:11:22:33', type: 'mac_address' }
+                },
+                {
+                    id: '2',
+                    active: true,
+                    primary_name: 'TestLaptop',
+                    host_type: 'workstation',
+                    l2ident: { id: 'DD:EE:FF:44:55:66', type: 'mac_address' }
+                },
+                {
+                    id: '3',
+                    active: false,
+                    primary_name: 'OfflineDevice',
+                    host_type: 'workstation',
+                    l2ident: { id: 'BB:CC:DD:22:33:44', type: 'mac_address' }
+                }
             ];
             const mockBssResponse = [
                 { id: 'bss1', status: { sta_count: 2 } },
@@ -401,6 +419,10 @@ describe('freebox-api', () => {
 
             expect(counts.total).toBe(2);
             expect(counts.wifi).toBe(3);
+            expect(counts.devices).toEqual([
+                { mac: 'AA:BB:CC:11:22:33', name: 'TestPhone', type: 'smartphone' },
+                { mac: 'DD:EE:FF:44:55:66', name: 'TestLaptop', type: 'workstation' }
+            ]);
             expect(get).toHaveBeenCalledWith('http://api/lan/browser/pub/', {
                 headers: { 'X-Fbx-App-Auth': 'session-token' },
                 timeout: 10000
@@ -409,6 +431,49 @@ describe('freebox-api', () => {
                 headers: { 'X-Fbx-App-Auth': 'session-token' },
                 timeout: 10000
             });
+        });
+
+        it('should exclude inactive hosts from devices list', async () => {
+            const mockHosts = [
+                {
+                    id: '1',
+                    active: true,
+                    primary_name: 'ActiveDevice',
+                    host_type: 'workstation',
+                    l2ident: { id: 'AA:BB:CC:11:22:33', type: 'mac_address' }
+                },
+                {
+                    id: '2',
+                    active: false,
+                    primary_name: 'InactiveDevice',
+                    host_type: 'smartphone',
+                    l2ident: { id: 'DD:EE:FF:44:55:66', type: 'mac_address' }
+                }
+            ];
+
+            get.mockResolvedValueOnce({
+                data: { success: true, result: mockHosts }
+            }).mockResolvedValueOnce({ data: { success: true, result: [] } });
+
+            const counts = await getConnectedDevices('http://api', 'session-token');
+
+            expect(counts.devices).toHaveLength(1);
+            expect(counts.devices[0].mac).toBe('AA:BB:CC:11:22:33');
+            expect(counts.devices[0].name).toBe('ActiveDevice');
+        });
+
+        it('should fall back to empty mac when l2ident is absent', async () => {
+            const mockHosts = [
+                { id: '1', active: true, primary_name: 'NoMacDevice', host_type: 'workstation' }
+            ];
+
+            get.mockResolvedValueOnce({
+                data: { success: true, result: mockHosts }
+            }).mockResolvedValueOnce({ data: { success: true, result: [] } });
+
+            const counts = await getConnectedDevices('http://api', 'session-token');
+
+            expect(counts.devices).toEqual([{ mac: '', name: 'NoMacDevice', type: 'workstation' }]);
         });
 
         it('should use /api/v2 base URL for wifi BSS endpoint', async () => {
