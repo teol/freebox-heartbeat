@@ -17,8 +17,14 @@ export const DEFAULT_PLACEHOLDERS: Pick<MonitorConfig, 'vpsUrl' | 'secret' | 'ap
     appId: 'fr.mon.monitoring'
 };
 
-export function createMonitor(config: MonitorConfig) {
-    validateConfig(config, DEFAULT_PLACEHOLDERS);
+export function createMonitor(rawConfig: MonitorConfig) {
+    validateConfig(rawConfig, DEFAULT_PLACEHOLDERS);
+
+    // Normalize the API URL once to avoid double slashes when apiUrl has a trailing slash.
+    const config: MonitorConfig = {
+        ...rawConfig,
+        freeboxApiUrl: rawConfig.freeboxApiUrl.replace(/\/$/, '')
+    };
 
     let sessionToken: string | null = null;
     let isRunning = false;

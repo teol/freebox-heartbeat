@@ -72,6 +72,21 @@ describe('monitor', () => {
         heartbeat.sendHeartbeat.mockResolvedValue({ success: true });
     }
 
+    it('strips trailing slash from freeboxApiUrl before making API calls', async () => {
+        setupDefaultMocks();
+
+        const monitor = createMonitor({
+            ...mockConfig,
+            freeboxApiUrl: 'http://mafreebox.freebox.fr/api/v4/'
+        });
+        await monitor.start();
+
+        expect(freeboxApi.getConnectionInfo).toHaveBeenCalledWith(
+            'http://mafreebox.freebox.fr/api/v4',
+            expect.anything()
+        );
+    });
+
     it('starts monitoring loop and schedules intervals', async () => {
         setupDefaultMocks();
 
