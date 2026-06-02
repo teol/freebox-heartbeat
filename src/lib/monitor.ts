@@ -2,6 +2,9 @@ import {
     readAppToken,
     loginToFreebox,
     getConnectionInfo,
+    getConnectedDevices,
+    getFtthInfo,
+    getSystemInfo,
     logoutFromFreebox
 } from './freebox-api.js';
 import { sendHeartbeat } from './heartbeat.js';
@@ -14,8 +17,14 @@ export const DEFAULT_PLACEHOLDERS: Pick<MonitorConfig, 'vpsUrl' | 'secret' | 'ap
     appId: 'fr.mon.monitoring'
 };
 
-export function createMonitor(config: MonitorConfig) {
-    validateConfig(config, DEFAULT_PLACEHOLDERS);
+export function createMonitor(rawConfig: MonitorConfig) {
+    validateConfig(rawConfig, DEFAULT_PLACEHOLDERS);
+
+    // Normalize the API URL once to avoid double slashes when apiUrl has a trailing slash.
+    const config: MonitorConfig = {
+        ...rawConfig,
+        freeboxApiUrl: rawConfig.freeboxApiUrl.replace(/\/$/, '')
+    };
 
     let sessionToken: string | null = null;
     let isRunning = false;
@@ -56,9 +65,53 @@ export function createMonitor(config: MonitorConfig) {
         try {
             await authenticate();
             const connectionInfo = await fetchConnectionInfoWithRefresh();
-            const payload = buildHeartbeatPayload(connectionInfo);
 
-            await sendHeartbeat(config.vpsUrl, config.secret, payload, config.maxRetries, config.retryDelay);
+            const isFtth = connectionInfo?.media === 'ftth';
+
+            const [deviceCountsResult, ftthResult, systemResult] = await Promise.allSettled([
+                getConnectedDevices(config.freeboxApiUrl, sessionToken),
+                isFtth
+                    ? getFtthInfo(config.freeboxApiUrl, sessionToken)
+                    : Promise.resolve(null),
+                getSystemInfo(config.freeboxApiUrl, sessionToken)
+            ]);
+
+            if (deviceCountsResult.status === 'rejected') {
+                const reason = deviceCountsResult.reason;
+                log(
+                    `Failed to fetch connected devices: ${(reason as Error)?.message ?? String(reason)}`,
+                    'WARN'
+                );
+            }
+            if (ftthResult.status === 'rejected') {
+                const reason = ftthResult.reason;
+                log(
+                    `Failed to fetch FTTH info: ${(reason as Error)?.message ?? String(reason)}`,
+                    'WARN'
+                );
+            }
+            if (systemResult.status === 'rejected') {
+                const reason = systemResult.reason;
+                log(
+                    `Failed to fetch system info: ${(reason as Error)?.message ?? String(reason)}`,
+                    'WARN'
+                );
+            }
+
+            const payload = buildHeartbeatPayload(
+                connectionInfo,
+                deviceCountsResult.status === 'fulfilled' ? deviceCountsResult.value : null,
+                ftthResult.status === 'fulfilled' ? ftthResult.value : null,
+                systemResult.status === 'fulfilled' ? systemResult.value : null
+            );
+
+            await sendHeartbeat(
+                config.vpsUrl,
+                config.secret,
+                payload,
+                config.maxRetries,
+                config.retryDelay
+            );
         } catch (error) {
             log(`Monitor iteration failed: ${(error as Error).message}`, 'ERROR');
 

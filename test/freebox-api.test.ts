@@ -8,6 +8,9 @@ import {
     loginToFreebox,
     logoutFromFreebox,
     getConnectionInfo,
+    getConnectedDevices,
+    getFtthInfo,
+    getSystemInfo,
     requestAuthorization,
     trackAuthorizationStatus,
     saveToken
@@ -374,6 +377,277 @@ describe('freebox-api', () => {
 
             await expect(trackAuthorizationStatus('http://api', 999)).rejects.toThrow(
                 'Tracking failed: Not found'
+            );
+        });
+    });
+
+    describe('getConnectedDevices', () => {
+        it('should return total active hosts and wifi station count', async () => {
+            const mockHosts = [
+                {
+                    id: '1',
+                    active: true,
+                    primary_name: 'TestPhone',
+                    host_type: 'smartphone',
+                    l2ident: { id: 'AA:BB:CC:11:22:33', type: 'mac_address' }
+                },
+                {
+                    id: '2',
+                    active: true,
+                    primary_name: 'TestLaptop',
+                    host_type: 'workstation',
+                    l2ident: { id: 'DD:EE:FF:44:55:66', type: 'mac_address' }
+                },
+                {
+                    id: '3',
+                    active: false,
+                    primary_name: 'OfflineDevice',
+                    host_type: 'workstation',
+                    l2ident: { id: 'BB:CC:DD:22:33:44', type: 'mac_address' }
+                }
+            ];
+            const mockBssResponse = [
+                { id: 'bss1', status: { sta_count: 2 } },
+                { id: 'bss2', status: { sta_count: 1 } }
+            ];
+
+            get.mockResolvedValueOnce({
+                data: { success: true, result: mockHosts }
+            }).mockResolvedValueOnce({ data: { success: true, result: mockBssResponse } });
+
+            const counts = await getConnectedDevices('http://api', 'session-token');
+
+            expect(counts.total).toBe(2);
+            expect(counts.wifi).toBe(3);
+            expect(counts.devices).toEqual([
+                { mac: 'AA:BB:CC:11:22:33', name: 'TestPhone', type: 'smartphone' },
+                { mac: 'DD:EE:FF:44:55:66', name: 'TestLaptop', type: 'workstation' }
+            ]);
+            expect(get).toHaveBeenCalledWith('http://api/lan/browser/pub/', {
+                headers: { 'X-Fbx-App-Auth': 'session-token' },
+                timeout: 10000
+            });
+            expect(get).toHaveBeenCalledWith('http://api/wifi/bss/', {
+                headers: { 'X-Fbx-App-Auth': 'session-token' },
+                timeout: 10000
+            });
+        });
+
+        it('should exclude inactive hosts from devices list', async () => {
+            const mockHosts = [
+                {
+                    id: '1',
+                    active: true,
+                    primary_name: 'ActiveDevice',
+                    host_type: 'workstation',
+                    l2ident: { id: 'AA:BB:CC:11:22:33', type: 'mac_address' }
+                },
+                {
+                    id: '2',
+                    active: false,
+                    primary_name: 'InactiveDevice',
+                    host_type: 'smartphone',
+                    l2ident: { id: 'DD:EE:FF:44:55:66', type: 'mac_address' }
+                }
+            ];
+
+            get.mockResolvedValueOnce({
+                data: { success: true, result: mockHosts }
+            }).mockResolvedValueOnce({ data: { success: true, result: [] } });
+
+            const counts = await getConnectedDevices('http://api', 'session-token');
+
+            expect(counts.devices).toHaveLength(1);
+            expect(counts.devices[0].mac).toBe('AA:BB:CC:11:22:33');
+            expect(counts.devices[0].name).toBe('ActiveDevice');
+        });
+
+        it('should fall back to empty mac when l2ident is absent', async () => {
+            const mockHosts = [
+                { id: '1', active: true, primary_name: 'NoMacDevice', host_type: 'workstation' }
+            ];
+
+            get.mockResolvedValueOnce({
+                data: { success: true, result: mockHosts }
+            }).mockResolvedValueOnce({ data: { success: true, result: [] } });
+
+            const counts = await getConnectedDevices('http://api', 'session-token');
+
+            expect(counts.devices).toEqual([{ mac: '', name: 'NoMacDevice', type: 'workstation' }]);
+        });
+
+        it('should use /api/v2 base URL for wifi BSS endpoint', async () => {
+            get.mockResolvedValueOnce({
+                data: { success: true, result: [] }
+            }).mockResolvedValueOnce({ data: { success: true, result: [] } });
+
+            await getConnectedDevices('http://mafreebox.freebox.fr/api/v4', 'session-token');
+
+            expect(get).toHaveBeenCalledWith('http://mafreebox.freebox.fr/api/v2/wifi/bss/', {
+                headers: { 'X-Fbx-App-Auth': 'session-token' },
+                timeout: 10000
+            });
+        });
+
+        it('should use /api/v2 base URL for wifi BSS endpoint when apiUrl has trailing slash', async () => {
+            get.mockResolvedValueOnce({
+                data: { success: true, result: [] }
+            }).mockResolvedValueOnce({ data: { success: true, result: [] } });
+
+            await getConnectedDevices('http://mafreebox.freebox.fr/api/v4/', 'session-token');
+
+            expect(get).toHaveBeenCalledWith('http://mafreebox.freebox.fr/api/v2/wifi/bss/', {
+                headers: { 'X-Fbx-App-Auth': 'session-token' },
+                timeout: 10000
+            });
+        });
+
+        it('should return zero counts when no devices are active', async () => {
+            get.mockResolvedValueOnce({
+                data: { success: true, result: [] }
+            }).mockResolvedValueOnce({ data: { success: true, result: [] } });
+
+            const counts = await getConnectedDevices('http://api', 'session-token');
+
+            expect(counts.total).toBe(0);
+            expect(counts.wifi).toBe(0);
+        });
+
+        it('should handle missing sta_count gracefully', async () => {
+            const mockHosts = [
+                { id: '1', active: true, primary_name: 'Device', host_type: 'workstation' }
+            ];
+            const mockBssResponse = [{ id: 'bss1', status: {} }];
+
+            get.mockResolvedValueOnce({
+                data: { success: true, result: mockHosts }
+            }).mockResolvedValueOnce({ data: { success: true, result: mockBssResponse } });
+
+            const counts = await getConnectedDevices('http://api', 'session-token');
+
+            expect(counts.total).toBe(1);
+            expect(counts.wifi).toBe(0);
+        });
+
+        it('should throw error if LAN API returns failure', async () => {
+            get.mockResolvedValueOnce({
+                data: { success: false, msg: 'Access denied' }
+            }).mockResolvedValueOnce({
+                data: { success: true, result: [] }
+            });
+
+            await expect(getConnectedDevices('http://api', 'session-token')).rejects.toThrow(
+                'LAN API error: Access denied'
+            );
+        });
+
+        it('should warn and return wifi 0 if WiFi API returns success: false', async () => {
+            const mockHosts = [
+                { id: '1', active: true, primary_name: 'Device', host_type: 'workstation' }
+            ];
+            const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+            get.mockResolvedValueOnce({
+                data: { success: true, result: mockHosts }
+            }).mockResolvedValueOnce({ data: { success: false, msg: 'WiFi not available' } });
+
+            const counts = await getConnectedDevices('http://api', 'session-token');
+
+            expect(counts.total).toBe(1);
+            expect(counts.wifi).toBe(0);
+            expect(warnSpy).toHaveBeenCalledWith(
+                expect.stringContaining('Could not fetch WiFi device count')
+            );
+            expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('WiFi not available'));
+            warnSpy.mockRestore();
+        });
+
+        it('should warn and return wifi 0 if WiFi API call is rejected', async () => {
+            const mockHosts = [
+                { id: '1', active: true, primary_name: 'Device', host_type: 'workstation' }
+            ];
+            const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+            get.mockResolvedValueOnce({
+                data: { success: true, result: mockHosts }
+            }).mockRejectedValueOnce(new Error('Network error'));
+
+            const counts = await getConnectedDevices('http://api', 'session-token');
+
+            expect(counts.total).toBe(1);
+            expect(counts.wifi).toBe(0);
+            expect(warnSpy).toHaveBeenCalledWith(
+                expect.stringContaining('Could not fetch WiFi device count')
+            );
+            warnSpy.mockRestore();
+        });
+
+        it('should handle null session token', async () => {
+            get.mockResolvedValueOnce({
+                data: { success: true, result: [] }
+            }).mockResolvedValueOnce({ data: { success: true, result: [] } });
+
+            const counts = await getConnectedDevices('http://api', null);
+
+            expect(get).toHaveBeenCalledWith('http://api/lan/browser/pub/', {
+                headers: { 'X-Fbx-App-Auth': '' },
+                timeout: 10000
+            });
+            expect(counts.total).toBe(0);
+        });
+    });
+
+    describe('getFtthInfo', () => {
+        it('should retrieve FTTH optical stats', async () => {
+            const mockFtth = {
+                sfp_pwr_rx: -1917,
+                sfp_pwr_tx: 269,
+                sfp_has_signal: true,
+                link: true
+            };
+            get.mockResolvedValue({ data: { success: true, result: mockFtth } });
+
+            const info = await getFtthInfo('http://api', 'session-token');
+
+            expect(info).toEqual(mockFtth);
+            expect(get).toHaveBeenCalledWith('http://api/connection/ftth/', {
+                headers: { 'X-Fbx-App-Auth': 'session-token' },
+                timeout: 10000
+            });
+        });
+
+        it('should throw error if API returns failure', async () => {
+            get.mockResolvedValue({ data: { success: false, msg: 'service_down' } });
+
+            await expect(getFtthInfo('http://api', 'session-token')).rejects.toThrow(
+                'FTTH API error: service_down'
+            );
+        });
+    });
+
+    describe('getSystemInfo', () => {
+        it('should retrieve system temperatures and uptime', async () => {
+            const mockSystem = {
+                temp_cpu_cp_master: 74,
+                temp_cpu_ap: 63,
+                temp_sw: 45,
+                fan_rpm: 1441,
+                uptime_val: 7189324
+            };
+            get.mockResolvedValue({ data: { success: true, result: mockSystem } });
+
+            const info = await getSystemInfo('http://api', 'session-token');
+
+            expect(info).toEqual(mockSystem);
+            expect(get).toHaveBeenCalledWith('http://api/system/', {
+                headers: { 'X-Fbx-App-Auth': 'session-token' },
+                timeout: 10000
+            });
+        });
+
+        it('should throw error if API returns failure', async () => {
+            get.mockResolvedValue({ data: { success: false, msg: 'Unauthorized' } });
+
+            await expect(getSystemInfo('http://api', 'session-token')).rejects.toThrow(
+                'System API error: Unauthorized'
             );
         });
     });

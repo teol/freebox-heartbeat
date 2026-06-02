@@ -27,19 +27,15 @@ export async function sendHeartbeat(
         const timestamp = Math.floor(Date.now() / 1000).toString();
         const nonce = randomBytes(16).toString('hex');
         const bodyString = JSON.stringify(data);
-        const bodyHash = createHash('sha256')
-            .update(bodyString)
-            .digest('base64url');
+        const bodyHash = createHash('sha256').update(bodyString).digest('base64url');
         // Important: path must be /heartbeat (without /api prefix) as per API specification
         const canonicalMessage = `method=POST;path=${HEARTBEAT_PATH};ts=${timestamp};nonce=${nonce};body_sha256=${bodyHash}`;
-        const signature = createHmac('sha256', secret)
-            .update(canonicalMessage)
-            .digest('base64url');
+        const signature = createHmac('sha256', secret).update(canonicalMessage).digest('base64url');
 
         const response = await httpClient.post(url, data, {
             timeout: 15000,
             headers: {
-                'Authorization': `Bearer ${signature}`,
+                Authorization: `Bearer ${signature}`,
                 'Signature-Timestamp': timestamp,
                 'Signature-Nonce': nonce,
                 'Content-Type': 'application/json'

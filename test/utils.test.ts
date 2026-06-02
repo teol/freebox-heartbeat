@@ -127,9 +127,105 @@ describe('utils', () => {
                 rate_down: 10176,
                 rate_up: 7954,
                 bytes_down: 43818124933,
-                bytes_up: 1353818610
+                bytes_up: 1353818610,
+                connected_devices_total: null,
+                connected_devices_wifi: null,
+                active_devices: null,
+                sfp_pwr_rx_dbm: null,
+                sfp_pwr_tx_dbm: null,
+                temp_cpu: null,
+                temp_switch: null,
+                fan_rpm: null,
+                uptime: null
             });
             expect(payload.timestamp).toMatch(/\d{4}-\d{2}-\d{2}T/);
+        });
+
+        it('should include FTTH optical power converted from raw to dBm', () => {
+            const payload = buildHeartbeatPayload({ state: 'up' }, null, {
+                sfp_pwr_rx: -1917,
+                sfp_pwr_tx: 269,
+                sfp_has_signal: true,
+                link: true
+            });
+
+            expect(payload.sfp_pwr_rx_dbm).toBeCloseTo(-19.17, 2);
+            expect(payload.sfp_pwr_tx_dbm).toBeCloseTo(2.69, 2);
+        });
+
+        it('should use the hottest CPU temperature', () => {
+            const payload = buildHeartbeatPayload({ state: 'up' }, null, null, {
+                temp_cpu_cp_master: 74,
+                temp_cpu_ap: 63,
+                temp_sw: 45,
+                fan_rpm: 1441,
+                uptime_val: 7189324
+            });
+
+            expect(payload.temp_cpu).toBe(74);
+            expect(payload.temp_switch).toBe(45);
+            expect(payload.fan_rpm).toBe(1441);
+            expect(payload.uptime).toBe(7189324);
+        });
+
+        it('should use null for FTTH and system fields when not provided', () => {
+            const payload = buildHeartbeatPayload({ state: 'up' });
+
+            expect(payload.sfp_pwr_rx_dbm).toBeNull();
+            expect(payload.sfp_pwr_tx_dbm).toBeNull();
+            expect(payload.temp_cpu).toBeNull();
+            expect(payload.temp_switch).toBeNull();
+            expect(payload.fan_rpm).toBeNull();
+            expect(payload.uptime).toBeNull();
+        });
+
+        it('should include device counts when provided', () => {
+            const connectionInfo = { state: 'up', media: 'ftth', type: 'ethernet' };
+            const deviceCounts = { total: 12, wifi: 8, devices: [] };
+
+            const payload = buildHeartbeatPayload(connectionInfo, deviceCounts);
+
+            expect(payload.connected_devices_total).toBe(12);
+            expect(payload.connected_devices_wifi).toBe(8);
+        });
+
+        it('should include active_devices list in payload', () => {
+            const connectionInfo = { state: 'up' };
+            const deviceCounts = {
+                total: 2,
+                wifi: 1,
+                devices: [
+                    { mac: 'AA:BB:CC:11:22:33', name: 'TestPhone', type: 'smartphone' },
+                    { mac: 'DD:EE:FF:44:55:66', name: 'TestDesktop', type: 'workstation' }
+                ]
+            };
+
+            const payload = buildHeartbeatPayload(connectionInfo, deviceCounts);
+
+            expect(payload.active_devices).toEqual([
+                { mac: 'AA:BB:CC:11:22:33', name: 'TestPhone', type: 'smartphone' },
+                { mac: 'DD:EE:FF:44:55:66', name: 'TestDesktop', type: 'workstation' }
+            ]);
+        });
+
+        it('should use null for device counts when not provided', () => {
+            const connectionInfo = { state: 'up' };
+
+            const payload = buildHeartbeatPayload(connectionInfo);
+
+            expect(payload.connected_devices_total).toBeNull();
+            expect(payload.connected_devices_wifi).toBeNull();
+            expect(payload.active_devices).toBeNull();
+        });
+
+        it('should use null for device counts when explicitly null', () => {
+            const connectionInfo = { state: 'up' };
+
+            const payload = buildHeartbeatPayload(connectionInfo, null);
+
+            expect(payload.connected_devices_total).toBeNull();
+            expect(payload.connected_devices_wifi).toBeNull();
+            expect(payload.active_devices).toBeNull();
         });
 
         it('should use defaults for missing fields', () => {
@@ -148,14 +244,15 @@ describe('utils', () => {
                 rate_down: 0,
                 rate_up: 0,
                 bytes_down: 0,
-                bytes_up: 0
+                bytes_up: 0,
+                connected_devices_total: null,
+                connected_devices_wifi: null,
+                active_devices: null
             });
         });
 
         it('should throw error if connectionInfo is null', () => {
-            expect(() => buildHeartbeatPayload(null)).toThrow(
-                'Connection info is required'
-            );
+            expect(() => buildHeartbeatPayload(null)).toThrow('Connection info is required');
         });
 
         it('should handle partial connection info', () => {

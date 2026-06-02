@@ -25,7 +25,72 @@ export interface ConnectionInfo {
     ipv4_port_range?: [number, number] | null;
 }
 
+export interface FtthInfo {
+    // Raw values from the API are in units of 0.01 dBm (divide by 100 to get dBm).
+    sfp_pwr_rx: number;
+    sfp_pwr_tx: number;
+    sfp_has_signal: boolean;
+    link: boolean;
+}
+
+export interface SystemInfo {
+    temp_cpu_cp_master?: number;
+    temp_cpu_ap?: number;
+    temp_sw?: number;
+    fan_rpm?: number;
+    uptime_val?: number;
+}
+
+export interface LanHostL3Connectivity {
+    addr: string;
+    af: 'ipv4' | 'ipv6';
+    active: boolean;
+    reachable: boolean;
+    last_activity: number;
+    last_time_reachable: number;
+}
+
+export interface LanHostL2Ident {
+    id: string;
+    type: string;
+}
+
+export interface LanHost {
+    id: string;
+    primary_name: string;
+    host_type: string;
+    active: boolean;
+    reachable: boolean;
+    last_activity: number;
+    persistent: boolean;
+    vendor_name?: string;
+    l2ident?: LanHostL2Ident;
+    l3connectivities: LanHostL3Connectivity[];
+}
+
+export interface WifiBssStatus {
+    sta_count: number;
+}
+
+export interface WifiBss {
+    id: string;
+    status: WifiBssStatus;
+}
+
+export interface DeviceSnapshot {
+    mac: string;
+    name: string;
+    type: string;
+}
+
+export interface DeviceCounts {
+    total: number;
+    wifi: number;
+    devices: DeviceSnapshot[];
+}
+
 export interface HeartbeatPayload {
+    // Connection
     ipv4: string | null;
     ipv6: string | null;
     connection_state: string;
@@ -37,6 +102,18 @@ export interface HeartbeatPayload {
     rate_up: number;
     bytes_down: number;
     bytes_up: number;
+    // Connected devices
+    connected_devices_total: number | null;
+    connected_devices_wifi: number | null;
+    active_devices: DeviceSnapshot[] | null;
+    // FTTH optical link (null on non-FTTH lines)
+    sfp_pwr_rx_dbm: number | null;
+    sfp_pwr_tx_dbm: number | null;
+    // System health
+    temp_cpu: number | null;
+    temp_switch: number | null;
+    fan_rpm: number | null;
+    uptime: number | null;
     timestamp: string;
 }
 

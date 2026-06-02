@@ -4,9 +4,15 @@ import * as httpClient from './http-client.js';
 import { HttpClientError } from './http-client.js';
 import type {
     ConnectionInfo,
+    DeviceCounts,
+    DeviceSnapshot,
     FreeboxAuthorizeResult,
     FreeboxAuthorizationStatus,
-    FreeboxConnectionResponse
+    FreeboxConnectionResponse,
+    FtthInfo,
+    LanHost,
+    SystemInfo,
+    WifiBss
 } from './types.js';
 
 interface FreeboxResponse<T> {
@@ -221,6 +227,107 @@ export async function saveToken(
         await fs.chmod(tokenFile, 0o600);
     } catch (error) {
         throw new Error(`Failed to save token: ${(error as Error).message}`);
+    }
+}
+
+// The WiFi API is only available on /api/v2, regardless of the configured API version.
+export function toV2Url(apiUrl: string): string {
+    return apiUrl.replace(/\/api\/v\d+\/?$/, '/api/v2');
+}
+
+export async function getConnectedDevices(
+    apiUrl: string,
+    sessionToken: string | null
+): Promise<DeviceCounts> {
+    const headers = { 'X-Fbx-App-Auth': sessionToken ?? '' };
+
+    const [lanResult, wifiResult] = await Promise.allSettled([
+        httpClient.get<FreeboxResponse<LanHost[]>>(`${apiUrl}/lan/browser/pub/`, {
+            headers,
+            timeout: 10000
+        }),
+        httpClient.get<FreeboxResponse<WifiBss[]>>(`${toV2Url(apiUrl)}/wifi/bss/`, {
+            headers,
+            timeout: 10000
+        })
+    ]);
+
+    if (lanResult.status === 'rejected') {
+        // A failure to get LAN devices is critical for this function.
+        handleHttpError(lanResult.reason, 'Failed to get connected devices from LAN API');
+    }
+
+    if (lanResult.status !== 'fulfilled') {
+        throw new Error('Failed to get connected devices from LAN API');
+    }
+
+    if (!lanResult.value.data.success) {
+        throw new Error(`LAN API error: ${lanResult.value.data.msg || 'Unknown error'}`);
+    }
+
+    const activeHosts = lanResult.value.data.result.filter((host) => host.active);
+    const total = activeHosts.length;
+    const devices: DeviceSnapshot[] = activeHosts.map((host) => ({
+        mac: host.l2ident?.id ?? '',
+        name: host.primary_name,
+        type: host.host_type
+    }));
+
+    let wifi = 0;
+    if (wifiResult.status === 'fulfilled' && wifiResult.value.data.success) {
+        wifi = wifiResult.value.data.result.reduce(
+            (sum, bss) => sum + (bss.status?.sta_count ?? 0),
+            0
+        );
+    } else {
+        // A failure to get WiFi devices is not critical. Log and continue.
+        const errorMsg =
+            wifiResult.status === 'rejected'
+                ? ((wifiResult.reason as Error)?.message ?? String(wifiResult.reason))
+                : (wifiResult.value.data.msg || 'Unknown API error');
+        console.warn(`Could not fetch WiFi device count: ${errorMsg}`);
+    }
+
+    return { total, wifi, devices };
+}
+
+export async function getFtthInfo(apiUrl: string, sessionToken: string | null): Promise<FtthInfo> {
+    try {
+        const response = await httpClient.get<FreeboxResponse<FtthInfo>>(
+            `${apiUrl}/connection/ftth/`,
+            {
+                headers: { 'X-Fbx-App-Auth': sessionToken ?? '' },
+                timeout: 10000
+            }
+        );
+
+        if (!response.data.success) {
+            throw new Error(`FTTH API error: ${response.data.msg || 'Unknown error'}`);
+        }
+
+        return response.data.result;
+    } catch (error) {
+        handleHttpError(error, 'Failed to get FTTH info');
+    }
+}
+
+export async function getSystemInfo(
+    apiUrl: string,
+    sessionToken: string | null
+): Promise<SystemInfo> {
+    try {
+        const response = await httpClient.get<FreeboxResponse<SystemInfo>>(`${apiUrl}/system/`, {
+            headers: { 'X-Fbx-App-Auth': sessionToken ?? '' },
+            timeout: 10000
+        });
+
+        if (!response.data.success) {
+            throw new Error(`System API error: ${response.data.msg || 'Unknown error'}`);
+        }
+
+        return response.data.result;
+    } catch (error) {
+        handleHttpError(error, 'Failed to get system info');
     }
 }
 
