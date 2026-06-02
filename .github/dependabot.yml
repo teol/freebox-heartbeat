@@ -9,14 +9,8 @@ updates:
     groups:
       dev-dependencies:
         dependency-type: development
-        update-types:
-          - minor
-          - patch
       production-dependencies:
         dependency-type: production
-        update-types:
-          - minor
-          - patch
     ignore:
       # Major versions require manual review
       - dependency-name: "*"
@@ -33,6 +27,8 @@ updates:
       github-actions:
         patterns:
           - "*"
+    ignore:
+      # Major versions require manual review
+      - dependency-name: "*"
         update-types:
-          - minor
-          - patch
+          - version-update:semver-major
