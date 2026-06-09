@@ -10,6 +10,7 @@ import { createHmac, createHash, randomBytes } from 'crypto';
 import { AddressInfo } from 'net';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { get, post, HttpClientError } from '../src/lib/http-client.js';
+import { calculateSignature } from '../src/lib/heartbeat.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -209,15 +210,15 @@ describe('smoke: crypto primitives', () => {
     });
 
     it('HMAC canonical message matches expected signature (heartbeat contract)', () => {
-        // Reproduce exactly the signing logic from heartbeat.ts so a refactor
-        // or crypto API change will be caught immediately.
-        const secret = 'test-secret';
-        const timestamp = '1700000000';
-        const nonce = 'aabbccddeeff00112233445566778899';
+        // Use the production calculateSignature so any change to the signing
+        // logic in heartbeat.ts is caught immediately.
         const body = JSON.stringify({ connection_state: 'up' });
-        const bodyHash = createHash('sha256').update(body).digest('base64url');
-        const canonical = `method=POST;path=/heartbeat;ts=${timestamp};nonce=${nonce};body_sha256=${bodyHash}`;
-        const signature = createHmac('sha256', secret).update(canonical).digest('base64url');
+        const signature = calculateSignature(
+            'test-secret',
+            body,
+            '1700000000',
+            'aabbccddeeff00112233445566778899'
+        );
 
         // The expected value was computed once and must stay stable across updates.
         expect(signature).toMatchSnapshot();

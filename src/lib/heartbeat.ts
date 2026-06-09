@@ -6,6 +6,17 @@ import { sleep, log } from './utils.js';
 
 const HEARTBEAT_PATH = '/heartbeat';
 
+export function calculateSignature(
+    secret: string,
+    body: string,
+    timestamp: string,
+    nonce: string
+): string {
+    const bodyHash = createHash('sha256').update(body).digest('base64url');
+    const canonicalMessage = `method=POST;path=${HEARTBEAT_PATH};ts=${timestamp};nonce=${nonce};body_sha256=${bodyHash}`;
+    return createHmac('sha256', secret).update(canonicalMessage).digest('base64url');
+}
+
 export async function sendHeartbeat(
     vpsUrl: string,
     secret: string,
@@ -24,13 +35,11 @@ export async function sendHeartbeat(
         const url = urlObject.toString();
 
         // Generate HMAC authentication headers
+        // Important: path must be /heartbeat (without /api prefix) as per API specification
         const timestamp = Math.floor(Date.now() / 1000).toString();
         const nonce = randomBytes(16).toString('hex');
         const bodyString = JSON.stringify(data);
-        const bodyHash = createHash('sha256').update(bodyString).digest('base64url');
-        // Important: path must be /heartbeat (without /api prefix) as per API specification
-        const canonicalMessage = `method=POST;path=${HEARTBEAT_PATH};ts=${timestamp};nonce=${nonce};body_sha256=${bodyHash}`;
-        const signature = createHmac('sha256', secret).update(canonicalMessage).digest('base64url');
+        const signature = calculateSignature(secret, bodyString, timestamp, nonce);
 
         const response = await httpClient.post(url, data, {
             timeout: 15000,
