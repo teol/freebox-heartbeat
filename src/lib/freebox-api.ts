@@ -337,23 +337,22 @@ export async function getSystemInfo(
 // API v8 moved temperatures and fans from flat fields to sensors/fans arrays.
 // Normalize both formats to flat fields so the rest of the code is unaffected.
 function normalizeSystemInfo(raw: SystemInfo): SystemInfo {
-    if (Array.isArray(raw.sensors)) {
-        const byId = new Map<string, number>(
-            raw.sensors.map((s: SystemSensor) => [s.id, s.value])
-        );
-        raw.temp_cpu_cp_master ??= byId.get('temp_cpu_cp_master');
-        raw.temp_cpu_ap ??= byId.get('temp_cpu_ap');
-        raw.temp_sw ??= byId.get('temp_sw');
+    const normalized = { ...raw };
+
+    if (Array.isArray(normalized.sensors)) {
+        normalized.temp_cpu_cp_master ??= normalized.sensors.find((s: SystemSensor) => s.id === 'temp_cpu_cp_master')?.value;
+        normalized.temp_cpu_ap ??= normalized.sensors.find((s: SystemSensor) => s.id === 'temp_cpu_ap')?.value;
+        normalized.temp_sw ??= normalized.sensors.find((s: SystemSensor) => s.id === 'temp_sw')?.value;
     }
 
-    if (Array.isArray(raw.fans) && raw.fan_rpm == null) {
-        const values = raw.fans.map((f: SystemFan) => f.value);
+    if (Array.isArray(normalized.fans) && normalized.fan_rpm == null) {
+        const values = normalized.fans.map((f: SystemFan) => f.value);
         if (values.length > 0) {
-            raw.fan_rpm = Math.max(...values);
+            normalized.fan_rpm = Math.max(...values);
         }
     }
 
-    return raw;
+    return normalized;
 }
 
 export async function getStorageDisks(
