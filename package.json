@@ -9,6 +9,7 @@
     "authorize": "node --enable-source-maps dist/authorize.js",
     "test:api": "node --enable-source-maps dist/test-api.js",
     "test:api:dev": "tsx src/test-api.ts",
+    "debug:payload": "tsx src/debug-payload.ts",
     "build": "tsc --project tsconfig.json",
     "watch": "tsc --watch --preserveWatchOutput --project tsconfig.json",
     "dev": "tsx watch src/monitor.ts",
