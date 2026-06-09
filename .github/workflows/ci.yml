@@ -13,10 +13,14 @@ jobs:
             - uses: actions/setup-node@v4
               with:
                   node-version: 22
-                  cache: 'yarn'
-                  cache-dependency-path: yarn.lock
             - name: Enable Corepack
               run: corepack enable
+            - name: Restore Yarn cache
+              uses: actions/cache@v4
+              with:
+                  path: .yarn/cache
+                  key: yarn-${{ hashFiles('yarn.lock') }}
+                  restore-keys: yarn-
             - name: Install dependencies
               run: yarn install --immutable
             - name: Lint
