@@ -25,6 +25,7 @@ function startServer(
 ): Promise<ServerHandle> {
     return new Promise((resolve, reject) => {
         const server = http.createServer(handler);
+        server.on('error', reject);
         server.listen(0, '127.0.0.1', () => {
             const { port } = server.address() as AddressInfo;
             resolve({
@@ -35,7 +36,6 @@ function startServer(
                     )
             });
         });
-        server.on('error', reject);
     });
 }
 
@@ -95,7 +95,7 @@ describe('smoke: http-client (real HTTP server)', () => {
         });
     });
 
-    afterAll(() => server.close());
+    afterAll(() => server?.close());
 
     it('GET /ok returns parsed JSON body', async () => {
         const response = await get<{ ok: boolean }>(`${server.url}/ok`);
@@ -126,6 +126,7 @@ describe('smoke: http-client (real HTTP server)', () => {
 
         try {
             await get(`${server.url}/not-found`);
+            expect.fail('should have thrown');
         } catch (err) {
             expect(err).toBeInstanceOf(HttpClientError);
             expect((err as HttpClientError).status).toBe(404);
