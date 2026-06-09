@@ -31,9 +31,10 @@ function startServer(
             resolve({
                 url: `http://127.0.0.1:${port}`,
                 close: () =>
-                    new Promise<void>((res, rej) =>
-                        server.close((err) => (err ? rej(err) : res()))
-                    )
+                    new Promise<void>((res, rej) => {
+                        server.closeAllConnections();
+                        server.close((err) => (err ? rej(err) : res()));
+                    })
             });
         });
     });
@@ -48,7 +49,7 @@ describe('smoke: http-client (real HTTP server)', () => {
 
     beforeAll(async () => {
         server = await startServer((req, res) => {
-            const url = new URL(req.url!, `http://${req.headers.host}`);
+            const url = new URL(req.url ?? '/', `http://${req.headers.host ?? '127.0.0.1'}`);
 
             if (url.pathname === '/ok' && req.method === 'GET') {
                 res.writeHead(200, { 'Content-Type': 'application/json' });
