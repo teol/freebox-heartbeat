@@ -4,6 +4,7 @@ import type {
     FtthInfo,
     HeartbeatPayload,
     MonitorConfig,
+    StorageDisk,
     SystemInfo
 } from './types.js';
 
@@ -47,7 +48,8 @@ export function buildHeartbeatPayload(
     connectionInfo: ConnectionInfo | null,
     deviceCounts?: DeviceCounts | null,
     ftthInfo?: FtthInfo | null,
-    systemInfo?: SystemInfo | null
+    systemInfo?: SystemInfo | null,
+    storageDisks?: StorageDisk[] | null
 ): HeartbeatPayload {
     if (!connectionInfo) {
         throw new Error('Connection info is required');
@@ -62,6 +64,42 @@ export function buildHeartbeatPayload(
         (t): t is number => t != null
     );
     const tempCpu = cpuTemps.length > 0 ? Math.max(...cpuTemps) : null;
+
+    // Aggregate storage metrics in a single pass across enabled disks and mounted partitions.
+    let diskTemp: number | null = null;
+    let diskUsedBytes: number | null = null;
+    let diskFreeBytes: number | null = null;
+    let diskTotalBytes: number | null = null;
+    let diskReadErrors: number | null = null;
+    let diskWriteErrors: number | null = null;
+
+    for (const disk of storageDisks ?? []) {
+        if (disk?.state !== 'enabled') continue;
+
+        if (disk.temp != null) {
+            diskTemp = diskTemp == null ? disk.temp : Math.max(diskTemp, disk.temp);
+        }
+        if (disk.read_error_requests != null) {
+            diskReadErrors = (diskReadErrors ?? 0) + disk.read_error_requests;
+        }
+        if (disk.write_error_requests != null) {
+            diskWriteErrors = (diskWriteErrors ?? 0) + disk.write_error_requests;
+        }
+
+        for (const partition of disk.partitions ?? []) {
+            if (partition?.state !== 'mounted') continue;
+
+            if (partition.used_bytes != null) {
+                diskUsedBytes = (diskUsedBytes ?? 0) + partition.used_bytes;
+            }
+            if (partition.free_bytes != null) {
+                diskFreeBytes = (diskFreeBytes ?? 0) + partition.free_bytes;
+            }
+            if (partition.total_bytes != null) {
+                diskTotalBytes = (diskTotalBytes ?? 0) + partition.total_bytes;
+            }
+        }
+    }
 
     return {
         ipv4: connectionInfo.ipv4 ?? null,
@@ -84,6 +122,12 @@ export function buildHeartbeatPayload(
         temp_switch: systemInfo?.temp_sw ?? null,
         fan_rpm: systemInfo?.fan_rpm ?? null,
         uptime: systemInfo?.uptime_val ?? null,
+        disk_temp: diskTemp,
+        disk_used_bytes: diskUsedBytes,
+        disk_free_bytes: diskFreeBytes,
+        disk_total_bytes: diskTotalBytes,
+        disk_read_errors: diskReadErrors,
+        disk_write_errors: diskWriteErrors,
         timestamp: new Date().toISOString()
     };
 }

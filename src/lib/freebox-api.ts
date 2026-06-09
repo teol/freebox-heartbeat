@@ -11,7 +11,10 @@ import type {
     FreeboxConnectionResponse,
     FtthInfo,
     LanHost,
+    StorageDisk,
     SystemInfo,
+    SystemSensor,
+    SystemFan,
     WifiBss
 } from './types.js';
 
@@ -325,9 +328,63 @@ export async function getSystemInfo(
             throw new Error(`System API error: ${response.data.msg || 'Unknown error'}`);
         }
 
-        return response.data.result;
+        return normalizeSystemInfo(response.data.result);
     } catch (error) {
         handleHttpError(error, 'Failed to get system info');
+    }
+}
+
+// API v8 moved temperatures and fans from flat fields to sensors/fans arrays.
+// Normalize both formats to flat fields so the rest of the code is unaffected.
+function normalizeSystemInfo(raw: SystemInfo): SystemInfo {
+    const normalized = { ...raw };
+
+    if (Array.isArray(normalized.sensors)) {
+        const sensorMap = new Map<string, number>(
+            normalized.sensors
+                .filter((s): s is SystemSensor => s != null)
+                .map((s) => [s.id, s.value])
+        );
+        normalized.temp_cpu_cp_master ??= sensorMap.get('temp_cpu_cp_master');
+        normalized.temp_cpu_ap ??= sensorMap.get('temp_cpu_ap');
+        normalized.temp_sw ??= sensorMap.get('temp_sw');
+    }
+
+    if (Array.isArray(normalized.fans) && normalized.fan_rpm == null) {
+        let maxRpm: number | undefined;
+        for (const fan of normalized.fans) {
+            if (fan?.value != null && (maxRpm == null || fan.value > maxRpm)) {
+                maxRpm = fan.value;
+            }
+        }
+        if (maxRpm != null) {
+            normalized.fan_rpm = maxRpm;
+        }
+    }
+
+    return normalized;
+}
+
+export async function getStorageDisks(
+    apiUrl: string,
+    sessionToken: string | null
+): Promise<StorageDisk[]> {
+    try {
+        const response = await httpClient.get<FreeboxResponse<StorageDisk[]>>(
+            `${apiUrl}/storage/disk/`,
+            {
+                headers: { 'X-Fbx-App-Auth': sessionToken ?? '' },
+                timeout: 10000
+            }
+        );
+
+        if (!response.data.success) {
+            throw new Error(`Storage API error: ${response.data.msg || 'Unknown error'}`);
+        }
+
+        return response.data.result ?? [];
+    } catch (error) {
+        handleHttpError(error, 'Failed to get storage disks');
     }
 }
 

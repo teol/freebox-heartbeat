@@ -22,13 +22,15 @@ async function main(): Promise<void> {
 
         const isFtth = connectionInfo?.media === 'ftth';
 
-        const [deviceCountsResult, ftthResult, systemResult] = await Promise.allSettled([
-            freeboxApi.getConnectedDevices(config.freeboxApiUrl, sessionToken),
-            isFtth
-                ? freeboxApi.getFtthInfo(config.freeboxApiUrl, sessionToken)
-                : Promise.resolve(null),
-            freeboxApi.getSystemInfo(config.freeboxApiUrl, sessionToken)
-        ]);
+        const [deviceCountsResult, ftthResult, systemResult, storageResult] =
+            await Promise.allSettled([
+                freeboxApi.getConnectedDevices(config.freeboxApiUrl, sessionToken),
+                isFtth
+                    ? freeboxApi.getFtthInfo(config.freeboxApiUrl, sessionToken)
+                    : Promise.resolve(null),
+                freeboxApi.getSystemInfo(config.freeboxApiUrl, sessionToken),
+                freeboxApi.getStorageDisks(config.freeboxApiUrl, sessionToken)
+            ]);
 
         if (deviceCountsResult.status === 'rejected') {
             console.warn(`[WARN] Connected devices: ${(deviceCountsResult.reason as Error)?.message}`);
@@ -50,11 +52,18 @@ async function main(): Promise<void> {
             console.log('System info fetched.');
         }
 
+        if (storageResult.status === 'rejected') {
+            console.warn(`[WARN] Storage info: ${(storageResult.reason as Error)?.message}`);
+        } else {
+            console.log('Storage info fetched.');
+        }
+
         const payload = buildHeartbeatPayload(
             connectionInfo,
             deviceCountsResult.status === 'fulfilled' ? deviceCountsResult.value : null,
             ftthResult.status === 'fulfilled' ? ftthResult.value : null,
-            systemResult.status === 'fulfilled' ? systemResult.value : null
+            systemResult.status === 'fulfilled' ? systemResult.value : null,
+            storageResult.status === 'fulfilled' ? storageResult.value : null
         );
 
         console.log('\n' + '─'.repeat(60));

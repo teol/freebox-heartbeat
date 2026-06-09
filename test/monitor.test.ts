@@ -7,6 +7,7 @@ vi.mock('../src/lib/freebox-api.js', () => ({
     getConnectedDevices: vi.fn(),
     getFtthInfo: vi.fn(),
     getSystemInfo: vi.fn(),
+    getStorageDisks: vi.fn(),
     logoutFromFreebox: vi.fn()
 }));
 
@@ -69,6 +70,17 @@ describe('monitor', () => {
             fan_rpm: 1441,
             uptime_val: 7189324
         });
+        freeboxApi.getStorageDisks.mockResolvedValue([
+            {
+                state: 'enabled',
+                temp: 36,
+                read_error_requests: 0,
+                write_error_requests: 0,
+                partitions: [
+                    { state: 'mounted', total_bytes: 480000000000, used_bytes: 8000000000, free_bytes: 472000000000 }
+                ]
+            }
+        ]);
         heartbeat.sendHeartbeat.mockResolvedValue({ success: true });
     }
 
@@ -152,11 +164,46 @@ describe('monitor', () => {
         expect(payload.sfp_pwr_tx_dbm).toBeNull();
     });
 
+    it('includes aggregated disk metrics in the heartbeat payload', async () => {
+        setupDefaultMocks();
+        freeboxApi.getStorageDisks.mockResolvedValue([
+            {
+                state: 'enabled',
+                temp: 38,
+                read_error_requests: 2,
+                write_error_requests: 1,
+                partitions: [
+                    { state: 'mounted', total_bytes: 500000000000, used_bytes: 100000000000, free_bytes: 400000000000 },
+                    { state: 'unmounted', total_bytes: 100000000000, used_bytes: 50000000000, free_bytes: 50000000000 }
+                ]
+            },
+            {
+                state: 'disabled',
+                temp: 99,
+                read_error_requests: 999,
+                write_error_requests: 999,
+                partitions: []
+            }
+        ]);
+
+        const monitor = createMonitor(mockConfig);
+        await monitor.start();
+
+        const payload = heartbeat.sendHeartbeat.mock.calls[0][2];
+        expect(payload.disk_temp).toBe(38);
+        expect(payload.disk_read_errors).toBe(2);
+        expect(payload.disk_write_errors).toBe(1);
+        expect(payload.disk_total_bytes).toBe(500000000000);
+        expect(payload.disk_used_bytes).toBe(100000000000);
+        expect(payload.disk_free_bytes).toBe(400000000000);
+    });
+
     it('sends heartbeat with null optional fields when secondary fetches fail', async () => {
         setupDefaultMocks();
         freeboxApi.getConnectedDevices.mockRejectedValue(new Error('LAN API unreachable'));
         freeboxApi.getFtthInfo.mockRejectedValue(new Error('FTTH API error'));
         freeboxApi.getSystemInfo.mockRejectedValue(new Error('System API error'));
+        freeboxApi.getStorageDisks.mockRejectedValue(new Error('Storage API error'));
 
         const monitor = createMonitor(mockConfig);
         await monitor.start();
@@ -168,6 +215,9 @@ describe('monitor', () => {
         expect(payload.active_devices).toBeNull();
         expect(payload.sfp_pwr_rx_dbm).toBeNull();
         expect(payload.temp_cpu).toBeNull();
+        expect(payload.disk_temp).toBeNull();
+        expect(payload.disk_read_errors).toBeNull();
+        expect(payload.disk_free_bytes).toBeNull();
     });
 
     it('refreshes session after configured interval', async () => {
