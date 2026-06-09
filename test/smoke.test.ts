@@ -122,25 +122,15 @@ describe('smoke: http-client (real HTTP server)', () => {
     });
 
     it('GET /not-found rejects with HttpClientError status 404', async () => {
-        await expect(get(`${server.url}/not-found`)).rejects.toBeInstanceOf(HttpClientError);
-
-        try {
-            await get(`${server.url}/not-found`);
-            expect.fail('should have thrown');
-        } catch (err) {
-            expect(err).toBeInstanceOf(HttpClientError);
-            expect((err as HttpClientError).status).toBe(404);
-        }
+        const promise = get(`${server.url}/not-found`);
+        await expect(promise).rejects.toBeInstanceOf(HttpClientError);
+        await expect(promise).rejects.toHaveProperty('status', 404);
     });
 
     it('GET /server-error rejects with HttpClientError status 500', async () => {
-        try {
-            await get(`${server.url}/server-error`);
-            expect.fail('should have thrown');
-        } catch (err) {
-            expect(err).toBeInstanceOf(HttpClientError);
-            expect((err as HttpClientError).status).toBe(500);
-        }
+        const promise = get(`${server.url}/server-error`);
+        await expect(promise).rejects.toBeInstanceOf(HttpClientError);
+        await expect(promise).rejects.toHaveProperty('status', 500);
     });
 
     it('GET /slow rejects with timeout error', async () => {
@@ -165,8 +155,9 @@ describe('smoke: http-client (real HTTP server)', () => {
 
         try {
             await post(s.url, { x: 1 });
-            expect(receivedHeaders!['content-type']).toContain('application/json');
-            expect(Number(receivedHeaders!['content-length'])).toBeGreaterThan(0);
+            expect(receivedHeaders).not.toBeNull();
+            expect(receivedHeaders?.['content-type']).toContain('application/json');
+            expect(Number(receivedHeaders?.['content-length'])).toBeGreaterThan(0);
         } finally {
             await s.close();
         }
