@@ -346,7 +346,9 @@ function normalizeSystemInfo(raw: SystemInfo): SystemInfo {
     }
 
     if (Array.isArray(normalized.fans) && normalized.fan_rpm == null) {
-        const values = normalized.fans.map((f: SystemFan) => f.value);
+        const values = normalized.fans
+            .map((f: SystemFan) => f.value)
+            .filter((v): v is number => v != null);
         if (values.length > 0) {
             normalized.fan_rpm = Math.max(...values);
         }
@@ -372,7 +374,7 @@ export async function getStorageDisks(
             throw new Error(`Storage API error: ${response.data.msg || 'Unknown error'}`);
         }
 
-        return response.data.result;
+        return response.data.result ?? [];
     } catch (error) {
         handleHttpError(error, 'Failed to get storage disks');
     }
