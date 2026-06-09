@@ -5,6 +5,7 @@ import {
     getConnectedDevices,
     getFtthInfo,
     getSystemInfo,
+    getStorageDisks,
     logoutFromFreebox
 } from './freebox-api.js';
 import { sendHeartbeat } from './heartbeat.js';
@@ -68,13 +69,15 @@ export function createMonitor(rawConfig: MonitorConfig) {
 
             const isFtth = connectionInfo?.media === 'ftth';
 
-            const [deviceCountsResult, ftthResult, systemResult] = await Promise.allSettled([
-                getConnectedDevices(config.freeboxApiUrl, sessionToken),
-                isFtth
-                    ? getFtthInfo(config.freeboxApiUrl, sessionToken)
-                    : Promise.resolve(null),
-                getSystemInfo(config.freeboxApiUrl, sessionToken)
-            ]);
+            const [deviceCountsResult, ftthResult, systemResult, storageResult] =
+                await Promise.allSettled([
+                    getConnectedDevices(config.freeboxApiUrl, sessionToken),
+                    isFtth
+                        ? getFtthInfo(config.freeboxApiUrl, sessionToken)
+                        : Promise.resolve(null),
+                    getSystemInfo(config.freeboxApiUrl, sessionToken),
+                    getStorageDisks(config.freeboxApiUrl, sessionToken)
+                ]);
 
             if (deviceCountsResult.status === 'rejected') {
                 const reason = deviceCountsResult.reason;
@@ -97,12 +100,20 @@ export function createMonitor(rawConfig: MonitorConfig) {
                     'WARN'
                 );
             }
+            if (storageResult.status === 'rejected') {
+                const reason = storageResult.reason;
+                log(
+                    `Failed to fetch storage info: ${(reason as Error)?.message ?? String(reason)}`,
+                    'WARN'
+                );
+            }
 
             const payload = buildHeartbeatPayload(
                 connectionInfo,
                 deviceCountsResult.status === 'fulfilled' ? deviceCountsResult.value : null,
                 ftthResult.status === 'fulfilled' ? ftthResult.value : null,
-                systemResult.status === 'fulfilled' ? systemResult.value : null
+                systemResult.status === 'fulfilled' ? systemResult.value : null,
+                storageResult.status === 'fulfilled' ? storageResult.value : null
             );
 
             await sendHeartbeat(

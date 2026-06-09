@@ -7,6 +7,7 @@ vi.mock('../src/lib/freebox-api.js', () => ({
     getConnectedDevices: vi.fn(),
     getFtthInfo: vi.fn(),
     getSystemInfo: vi.fn(),
+    getStorageDisks: vi.fn(),
     logoutFromFreebox: vi.fn()
 }));
 
@@ -69,6 +70,17 @@ describe('monitor', () => {
             fan_rpm: 1441,
             uptime_val: 7189324
         });
+        freeboxApi.getStorageDisks.mockResolvedValue([
+            {
+                state: 'enabled',
+                temp: 36,
+                read_error_requests: 0,
+                write_error_requests: 0,
+                partitions: [
+                    { state: 'mounted', total_bytes: 480000000000, used_bytes: 8000000000, free_bytes: 472000000000 }
+                ]
+            }
+        ]);
         heartbeat.sendHeartbeat.mockResolvedValue({ success: true });
     }
 
