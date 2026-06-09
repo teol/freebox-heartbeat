@@ -105,17 +105,17 @@ export interface DeviceCounts {
 
 export interface StoragePartition {
     state: string;
-    total_bytes: number;
-    used_bytes: number;
-    free_bytes: number;
+    total_bytes?: number;
+    used_bytes?: number;
+    free_bytes?: number;
 }
 
 export interface StorageDisk {
     state: string;
     temp?: number;
-    read_error_requests: number;
-    write_error_requests: number;
-    partitions: StoragePartition[];
+    read_error_requests?: number;
+    write_error_requests?: number;
+    partitions?: StoragePartition[];
 }
 
 export interface HeartbeatPayload {

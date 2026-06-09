@@ -77,16 +77,29 @@ export function buildHeartbeatPayload(
     if (enabledDisks.length > 0) {
         const temps = enabledDisks.map((d) => d.temp).filter((t): t is number => t != null);
         diskTemp = temps.length > 0 ? Math.max(...temps) : null;
-        diskReadErrors = enabledDisks.reduce((sum, d) => sum + (d.read_error_requests ?? 0), 0);
-        diskWriteErrors = enabledDisks.reduce((sum, d) => sum + (d.write_error_requests ?? 0), 0);
+
+        const readErrors = enabledDisks
+            .map((d) => d.read_error_requests)
+            .filter((v): v is number => v != null);
+        diskReadErrors = readErrors.length > 0 ? readErrors.reduce((sum, v) => sum + v, 0) : null;
+
+        const writeErrors = enabledDisks
+            .map((d) => d.write_error_requests)
+            .filter((v): v is number => v != null);
+        diskWriteErrors = writeErrors.length > 0 ? writeErrors.reduce((sum, v) => sum + v, 0) : null;
 
         const mountedPartitions = enabledDisks.flatMap((d) =>
             (d.partitions ?? []).filter((p) => p.state === 'mounted')
         );
         if (mountedPartitions.length > 0) {
-            diskUsedBytes = mountedPartitions.reduce((sum, p) => sum + (p.used_bytes ?? 0), 0);
-            diskFreeBytes = mountedPartitions.reduce((sum, p) => sum + (p.free_bytes ?? 0), 0);
-            diskTotalBytes = mountedPartitions.reduce((sum, p) => sum + (p.total_bytes ?? 0), 0);
+            const usedValues = mountedPartitions.map((p) => p.used_bytes).filter((v): v is number => v != null);
+            diskUsedBytes = usedValues.length > 0 ? usedValues.reduce((sum, v) => sum + v, 0) : null;
+
+            const freeValues = mountedPartitions.map((p) => p.free_bytes).filter((v): v is number => v != null);
+            diskFreeBytes = freeValues.length > 0 ? freeValues.reduce((sum, v) => sum + v, 0) : null;
+
+            const totalValues = mountedPartitions.map((p) => p.total_bytes).filter((v): v is number => v != null);
+            diskTotalBytes = totalValues.length > 0 ? totalValues.reduce((sum, v) => sum + v, 0) : null;
         }
     }
 
