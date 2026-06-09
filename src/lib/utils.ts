@@ -77,16 +77,16 @@ export function buildHeartbeatPayload(
     if (enabledDisks.length > 0) {
         const temps = enabledDisks.map((d) => d.temp).filter((t): t is number => t != null);
         diskTemp = temps.length > 0 ? Math.max(...temps) : null;
-        diskReadErrors = enabledDisks.reduce((sum, d) => sum + d.read_error_requests, 0);
-        diskWriteErrors = enabledDisks.reduce((sum, d) => sum + d.write_error_requests, 0);
+        diskReadErrors = enabledDisks.reduce((sum, d) => sum + (d.read_error_requests ?? 0), 0);
+        diskWriteErrors = enabledDisks.reduce((sum, d) => sum + (d.write_error_requests ?? 0), 0);
 
         const mountedPartitions = enabledDisks.flatMap((d) =>
-            d.partitions.filter((p) => p.state === 'mounted')
+            (d.partitions ?? []).filter((p) => p.state === 'mounted')
         );
         if (mountedPartitions.length > 0) {
-            diskUsedBytes = mountedPartitions.reduce((sum, p) => sum + p.used_bytes, 0);
-            diskFreeBytes = mountedPartitions.reduce((sum, p) => sum + p.free_bytes, 0);
-            diskTotalBytes = mountedPartitions.reduce((sum, p) => sum + p.total_bytes, 0);
+            diskUsedBytes = mountedPartitions.reduce((sum, p) => sum + (p.used_bytes ?? 0), 0);
+            diskFreeBytes = mountedPartitions.reduce((sum, p) => sum + (p.free_bytes ?? 0), 0);
+            diskTotalBytes = mountedPartitions.reduce((sum, p) => sum + (p.total_bytes ?? 0), 0);
         }
     }
 

@@ -337,7 +337,7 @@ export async function getSystemInfo(
 // API v8 moved temperatures and fans from flat fields to sensors/fans arrays.
 // Normalize both formats to flat fields so the rest of the code is unaffected.
 function normalizeSystemInfo(raw: SystemInfo): SystemInfo {
-    if (raw.sensors) {
+    if (Array.isArray(raw.sensors)) {
         const byId = new Map<string, number>(
             raw.sensors.map((s: SystemSensor) => [s.id, s.value])
         );
@@ -346,7 +346,7 @@ function normalizeSystemInfo(raw: SystemInfo): SystemInfo {
         raw.temp_sw ??= byId.get('temp_sw');
     }
 
-    if (raw.fans && raw.fan_rpm == null) {
+    if (Array.isArray(raw.fans) && raw.fan_rpm == null) {
         const values = raw.fans.map((f: SystemFan) => f.value);
         if (values.length > 0) {
             raw.fan_rpm = Math.max(...values);
