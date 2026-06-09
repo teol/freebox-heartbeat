@@ -33,12 +33,26 @@ export interface FtthInfo {
     link: boolean;
 }
 
+export interface SystemSensor {
+    id: string;
+    value: number;
+}
+
+export interface SystemFan {
+    id: string;
+    value: number;
+}
+
 export interface SystemInfo {
+    // Flat fields present in older API versions
     temp_cpu_cp_master?: number;
     temp_cpu_ap?: number;
     temp_sw?: number;
     fan_rpm?: number;
     uptime_val?: number;
+    // Array format introduced in API v8
+    sensors?: SystemSensor[];
+    fans?: SystemFan[];
 }
 
 export interface LanHostL3Connectivity {
