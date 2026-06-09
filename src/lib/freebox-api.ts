@@ -12,6 +12,8 @@ import type {
     FtthInfo,
     LanHost,
     SystemInfo,
+    SystemSensor,
+    SystemFan,
     WifiBss
 } from './types.js';
 
@@ -325,10 +327,32 @@ export async function getSystemInfo(
             throw new Error(`System API error: ${response.data.msg || 'Unknown error'}`);
         }
 
-        return response.data.result;
+        return normalizeSystemInfo(response.data.result);
     } catch (error) {
         handleHttpError(error, 'Failed to get system info');
     }
+}
+
+// API v8 moved temperatures and fans from flat fields to sensors/fans arrays.
+// Normalize both formats to flat fields so the rest of the code is unaffected.
+function normalizeSystemInfo(raw: SystemInfo): SystemInfo {
+    if (raw.sensors) {
+        const byId = new Map<string, number>(
+            raw.sensors.map((s: SystemSensor) => [s.id, s.value])
+        );
+        raw.temp_cpu_cp_master ??= byId.get('temp_cpu_cp_master');
+        raw.temp_cpu_ap ??= byId.get('temp_cpu_ap');
+        raw.temp_sw ??= byId.get('temp_sw');
+    }
+
+    if (raw.fans && raw.fan_rpm == null) {
+        const values = raw.fans.map((f: SystemFan) => f.value);
+        if (values.length > 0) {
+            raw.fan_rpm = Math.max(...values);
+        }
+    }
+
+    return raw;
 }
 
 export function isAuthorizationGranted(status: FreeboxAuthorizationStatus): boolean {
