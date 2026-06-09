@@ -4,6 +4,7 @@ import type {
     FtthInfo,
     HeartbeatPayload,
     MonitorConfig,
+    StorageDisk,
     SystemInfo
 } from './types.js';
 
@@ -47,7 +48,8 @@ export function buildHeartbeatPayload(
     connectionInfo: ConnectionInfo | null,
     deviceCounts?: DeviceCounts | null,
     ftthInfo?: FtthInfo | null,
-    systemInfo?: SystemInfo | null
+    systemInfo?: SystemInfo | null,
+    storageDisks?: StorageDisk[] | null
 ): HeartbeatPayload {
     if (!connectionInfo) {
         throw new Error('Connection info is required');
@@ -62,6 +64,31 @@ export function buildHeartbeatPayload(
         (t): t is number => t != null
     );
     const tempCpu = cpuTemps.length > 0 ? Math.max(...cpuTemps) : null;
+
+    // Aggregate storage metrics across all enabled disks and their mounted partitions.
+    const enabledDisks = storageDisks?.filter((d) => d.state === 'enabled') ?? [];
+    let diskTemp: number | null = null;
+    let diskUsedBytes: number | null = null;
+    let diskFreeBytes: number | null = null;
+    let diskTotalBytes: number | null = null;
+    let diskReadErrors: number | null = null;
+    let diskWriteErrors: number | null = null;
+
+    if (enabledDisks.length > 0) {
+        const temps = enabledDisks.map((d) => d.temp).filter((t): t is number => t != null);
+        diskTemp = temps.length > 0 ? Math.max(...temps) : null;
+        diskReadErrors = enabledDisks.reduce((sum, d) => sum + d.read_error_requests, 0);
+        diskWriteErrors = enabledDisks.reduce((sum, d) => sum + d.write_error_requests, 0);
+
+        const mountedPartitions = enabledDisks.flatMap((d) =>
+            d.partitions.filter((p) => p.state === 'mounted')
+        );
+        if (mountedPartitions.length > 0) {
+            diskUsedBytes = mountedPartitions.reduce((sum, p) => sum + p.used_bytes, 0);
+            diskFreeBytes = mountedPartitions.reduce((sum, p) => sum + p.free_bytes, 0);
+            diskTotalBytes = mountedPartitions.reduce((sum, p) => sum + p.total_bytes, 0);
+        }
+    }
 
     return {
         ipv4: connectionInfo.ipv4 ?? null,
@@ -84,6 +111,12 @@ export function buildHeartbeatPayload(
         temp_switch: systemInfo?.temp_sw ?? null,
         fan_rpm: systemInfo?.fan_rpm ?? null,
         uptime: systemInfo?.uptime_val ?? null,
+        disk_temp: diskTemp,
+        disk_used_bytes: diskUsedBytes,
+        disk_free_bytes: diskFreeBytes,
+        disk_total_bytes: diskTotalBytes,
+        disk_read_errors: diskReadErrors,
+        disk_write_errors: diskWriteErrors,
         timestamp: new Date().toISOString()
     };
 }

@@ -11,6 +11,7 @@ import type {
     FreeboxConnectionResponse,
     FtthInfo,
     LanHost,
+    StorageDisk,
     SystemInfo,
     SystemSensor,
     SystemFan,
@@ -353,6 +354,29 @@ function normalizeSystemInfo(raw: SystemInfo): SystemInfo {
     }
 
     return raw;
+}
+
+export async function getStorageDisks(
+    apiUrl: string,
+    sessionToken: string | null
+): Promise<StorageDisk[]> {
+    try {
+        const response = await httpClient.get<FreeboxResponse<StorageDisk[]>>(
+            `${apiUrl}/storage/disk/`,
+            {
+                headers: { 'X-Fbx-App-Auth': sessionToken ?? '' },
+                timeout: 10000
+            }
+        );
+
+        if (!response.data.success) {
+            throw new Error(`Storage API error: ${response.data.msg || 'Unknown error'}`);
+        }
+
+        return response.data.result;
+    } catch (error) {
+        handleHttpError(error, 'Failed to get storage disks');
+    }
 }
 
 export function isAuthorizationGranted(status: FreeboxAuthorizationStatus): boolean {

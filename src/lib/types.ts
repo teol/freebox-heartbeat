@@ -103,6 +103,21 @@ export interface DeviceCounts {
     devices: DeviceSnapshot[];
 }
 
+export interface StoragePartition {
+    state: string;
+    total_bytes: number;
+    used_bytes: number;
+    free_bytes: number;
+}
+
+export interface StorageDisk {
+    state: string;
+    temp?: number;
+    read_error_requests: number;
+    write_error_requests: number;
+    partitions: StoragePartition[];
+}
+
 export interface HeartbeatPayload {
     // Connection
     ipv4: string | null;
@@ -128,6 +143,13 @@ export interface HeartbeatPayload {
     temp_switch: number | null;
     fan_rpm: number | null;
     uptime: number | null;
+    // Storage (aggregated across all enabled disks / mounted partitions)
+    disk_temp: number | null;
+    disk_used_bytes: number | null;
+    disk_free_bytes: number | null;
+    disk_total_bytes: number | null;
+    disk_read_errors: number | null;
+    disk_write_errors: number | null;
     timestamp: string;
 }
 
