@@ -65,8 +65,7 @@ export function buildHeartbeatPayload(
     );
     const tempCpu = cpuTemps.length > 0 ? Math.max(...cpuTemps) : null;
 
-    // Aggregate storage metrics across all enabled disks and their mounted partitions.
-    const enabledDisks = storageDisks?.filter((d) => d.state === 'enabled') ?? [];
+    // Aggregate storage metrics in a single pass across enabled disks and mounted partitions.
     let diskTemp: number | null = null;
     let diskUsedBytes: number | null = null;
     let diskFreeBytes: number | null = null;
@@ -74,32 +73,31 @@ export function buildHeartbeatPayload(
     let diskReadErrors: number | null = null;
     let diskWriteErrors: number | null = null;
 
-    if (enabledDisks.length > 0) {
-        const temps = enabledDisks.map((d) => d.temp).filter((t): t is number => t != null);
-        diskTemp = temps.length > 0 ? Math.max(...temps) : null;
+    for (const disk of storageDisks ?? []) {
+        if (disk?.state !== 'enabled') continue;
 
-        const readErrors = enabledDisks
-            .map((d) => d.read_error_requests)
-            .filter((v): v is number => v != null);
-        diskReadErrors = readErrors.length > 0 ? readErrors.reduce((sum, v) => sum + v, 0) : null;
+        if (disk.temp != null) {
+            diskTemp = diskTemp == null ? disk.temp : Math.max(diskTemp, disk.temp);
+        }
+        if (disk.read_error_requests != null) {
+            diskReadErrors = (diskReadErrors ?? 0) + disk.read_error_requests;
+        }
+        if (disk.write_error_requests != null) {
+            diskWriteErrors = (diskWriteErrors ?? 0) + disk.write_error_requests;
+        }
 
-        const writeErrors = enabledDisks
-            .map((d) => d.write_error_requests)
-            .filter((v): v is number => v != null);
-        diskWriteErrors = writeErrors.length > 0 ? writeErrors.reduce((sum, v) => sum + v, 0) : null;
+        for (const partition of disk.partitions ?? []) {
+            if (partition?.state !== 'mounted') continue;
 
-        const mountedPartitions = enabledDisks.flatMap((d) =>
-            (d.partitions ?? []).filter((p) => p.state === 'mounted')
-        );
-        if (mountedPartitions.length > 0) {
-            const usedValues = mountedPartitions.map((p) => p.used_bytes).filter((v): v is number => v != null);
-            diskUsedBytes = usedValues.length > 0 ? usedValues.reduce((sum, v) => sum + v, 0) : null;
-
-            const freeValues = mountedPartitions.map((p) => p.free_bytes).filter((v): v is number => v != null);
-            diskFreeBytes = freeValues.length > 0 ? freeValues.reduce((sum, v) => sum + v, 0) : null;
-
-            const totalValues = mountedPartitions.map((p) => p.total_bytes).filter((v): v is number => v != null);
-            diskTotalBytes = totalValues.length > 0 ? totalValues.reduce((sum, v) => sum + v, 0) : null;
+            if (partition.used_bytes != null) {
+                diskUsedBytes = (diskUsedBytes ?? 0) + partition.used_bytes;
+            }
+            if (partition.free_bytes != null) {
+                diskFreeBytes = (diskFreeBytes ?? 0) + partition.free_bytes;
+            }
+            if (partition.total_bytes != null) {
+                diskTotalBytes = (diskTotalBytes ?? 0) + partition.total_bytes;
+            }
         }
     }
 
